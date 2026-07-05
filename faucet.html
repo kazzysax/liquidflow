@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liquid Flow — Arc Testnet Faucet</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="theme-toggle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--flow:#1E5BFF;--flow-2:#5B8DFF;--ink:#0A1B3D;--ink-2:#5B6B8C;--mist:#D7E7F9;--cloud:#F6F8FC;--line:#E5EAF2;--line-2:#EEF1F6;--white:#fff;--ok:#1D9E75;--ok-bg:#E1F5EE;--ok-tx:#0F6E56;--warn-bg:#FAEEDA;--warn-tx:#854F0B;--display:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--body);color:var(--ink);background:var(--cloud);line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--flow);text-decoration:none}a:hover{text-decoration:underline}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--white);border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:20;flex-wrap:wrap;gap:10px}
+  .brand{display:flex;align-items:center;gap:10px}.brand .wm{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.4px;color:var(--ink)}.brand .wm span{color:var(--flow);font-weight:500}
+  .docnav{display:flex;gap:6px;flex-wrap:wrap}.docnav a{font-size:13px;color:var(--ink-2);padding:6px 12px;border-radius:100px;font-weight:500}.docnav a.active,.docnav a:hover{background:#EAF1FF;color:var(--flow);text-decoration:none}
+  .wrap{max-width:760px;margin:0 auto;padding:40px 24px 90px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--flow);font-weight:500}
+  .tag{display:inline-block;background:var(--warn-bg);color:var(--warn-tx);border:1px solid #EAD3A2;border-radius:100px;padding:3px 11px;font-size:11px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;margin-left:8px;vertical-align:middle}
+  h1{font-family:var(--display);font-size:32px;font-weight:600;letter-spacing:-1px;margin:8px 0 10px}
+  .lead{font-size:16px;color:var(--ink-2);margin-bottom:26px}
+  h2{font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:-.4px;margin:30px 0 12px}
+  p{margin-bottom:12px}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:22px;margin:16px 0}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--body);font-size:15px;font-weight:600;padding:13px 22px;border-radius:12px;border:0;cursor:pointer;transition:transform .1s,box-shadow .2s}
+  .btn-primary{background:var(--flow);color:#fff}.btn-primary:hover{text-decoration:none;box-shadow:0 8px 22px rgba(30,91,255,.28);transform:translateY(-1px)}
+  .btn-ghost{background:var(--cloud);color:var(--ink);border:1px solid var(--line-2)}.btn-ghost:hover{text-decoration:none;background:#EAF1FF}
+  .cta-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 4px}
+  .net{display:grid;grid-template-columns:150px 1fr auto;gap:10px 14px;align-items:center;font-size:14px}
+  .net .k{color:var(--ink-2);font-weight:500}
+  .net .v{font-family:var(--mono);font-size:13px;word-break:break-all;color:var(--ink)}
+  .copy{background:var(--cloud);border:1px solid var(--line-2);border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--ink-2);cursor:pointer}
+  .copy:hover{background:#EAF1FF;color:var(--flow)}
+  ol{margin:6px 0 4px 20px}li{margin-bottom:8px}
+  .note{background:var(--warn-bg);border:1px solid #EAD3A2;color:var(--warn-tx);border-radius:11px;padding:13px 15px;font-size:13.5px;margin:20px 0}
+  .foot{max-width:760px;margin:0 auto;padding:24px;color:var(--ink-2);font-size:12.5px;border-top:1px solid var(--line)}
+  @media(max-width:560px){.net{grid-template-columns:1fr;gap:4px}.net .k{margin-top:8px}}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html" class="brand"><svg width="26" height="26" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="#D7E7F9" stroke-width="3.5"/><path d="M5 28 a23 23 0 0 1 46 0" fill="none" stroke="#1E5BFF" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#1E5BFF"/></svg><span class="wm">Liquid<span>Flow</span></span></a>
+    <nav class="docnav">
+      <a href="docs.html">Overview</a>
+      <a href="docs-api.html">API Reference</a>
+      <a href="security.html">Security</a>
+      <a href="faucet.html" class="active">Faucet</a>
+      <a href="gateway.html">Gateway →</a>
+    </nav>
+  </div>
+
+  <div class="wrap">
+    <div class="eyebrow">Testnet Faucet <span class="tag">Temporary</span></div>
+    <h1>Arc testnet faucet</h1>
+    <p class="lead">Liquid Flow runs on the <b>Arc testnet</b>, where the native token is <b>USDC</b>. Grab some free test USDC below, then use it to try a real payment or activate a gateway — no real money involved.</p>
+
+    <div class="card">
+      <h2 style="margin-top:0">1 · Get test USDC</h2>
+      <p style="color:var(--ink-2)">Test USDC is dispensed by Circle's official faucet. Open it, choose the Arc testnet, paste your wallet address, and request tokens.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://faucet.circle.com" target="_blank" rel="noopener">Open Circle faucet →</a>
+        <button class="btn btn-ghost" onclick="addArc()">Add Arc network to wallet</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">2 · Arc testnet network details</h2>
+      <p style="color:var(--ink-2)">Add these to your wallet manually if the button above doesn't work.</p>
+      <div class="net">
+        <span class="k">Network name</span><span class="v" id="v-name">Arc Testnet</span><button class="copy" onclick="cp('Arc Testnet',this)">Copy</button>
+        <span class="k">Chain ID</span><span class="v" id="v-chain">5042002 (0x4CEF52)</span><button class="copy" onclick="cp('5042002',this)">Copy</button>
+        <span class="k">RPC URL</span><span class="v" id="v-rpc">https://rpc.testnet.arc.network</span><button class="copy" onclick="cp('https://rpc.testnet.arc.network',this)">Copy</button>
+        <span class="k">Currency</span><span class="v" id="v-cur">USDC (6 decimals)</span><button class="copy" onclick="cp('USDC',this)">Copy</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">3 · Use it on Liquid Flow</h2>
+      <ol style="color:var(--ink-2)">
+        <li>Create a gateway in the <a href="gateway.html">Access Gateway</a> wizard and pay the small activation fee in test USDC.</li>
+        <li>Or spin up a test payment in the <a href="dashboard.html">dashboard</a> and pay the deposit address from your funded wallet.</li>
+        <li>Liquid Flow's watcher confirms the deposit on-chain automatically — you'll see it flip to <b>confirmed</b>.</li>
+      </ol>
+    </div>
+
+    <div class="note">⚠️ <b>Temporary testnet resource.</b> This page and its front-page link exist only for the testnet phase and will be removed before mainnet. Test tokens have no value.</div>
+  </div>
+  <div class="foot">Liquid Flow is testnet software and not audited. Questions? See the <a href="docs.html">docs</a> or <a href="security.html">security page</a>.</div>
+
+<script>
+  function cp(t,el){ if(navigator.clipboard) navigator.clipboard.writeText(t); var o=el.textContent; el.textContent='Copied'; setTimeout(function(){el.textContent=o;},1200); }
+  async function addArc(){
+    if(!window.ethereum){ alert('No web3 wallet detected. Add the Arc network manually using the details below.'); return; }
+    try{
+      await window.ethereum.request({
+        method:'wallet_addEthereumChain',
+        params:[{
+          chainId:'0x4CEF52',                       // 5042002
+          chainName:'Arc Testnet',
+          rpcUrls:['https://rpc.testnet.arc.network'],
+          nativeCurrency:{ name:'USD Coin', symbol:'USDC', decimals:18 }
+        }]
+      });
+    }catch(e){
+      alert('Could not add automatically — please add the Arc network manually using the details below.\n\n('+(e && e.message?e.message:'wallet declined')+')');
+    }
+  }
+</script>
+</body>
+</html>

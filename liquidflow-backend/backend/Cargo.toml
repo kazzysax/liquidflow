@@ -1,0 +1,44 @@
+[package]
+name = "liquidflow-backend"
+version = "0.1.0"
+edition = "2021"
+# Strongest-safety posture: deny unsafe code across the whole crate.
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[dependencies]
+# Web framework
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors", "limit"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Database (compile-time-checked queries)
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "time", "macros"] }
+
+# Crypto / auth
+sha2 = "0.10"                 # session token hashing
+rand = "0.8"                  # nonce + token generation
+hex = "0.4"
+# EVM signature verification for SIWE (recover signer from signed message)
+alloy-primitives = "0.8"
+alloy-signer = "0.8"
+k256 = "0.13"
+
+# Time, ids, errors
+time = { version = "0.3", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "2"
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+# Property-based testing for the money/validation logic
+proptest = "1"

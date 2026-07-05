@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liquid Flow — Start a fundraiser</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="theme-toggle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --flow:#1E5BFF; --flow-2:#5B8DFF; --ink:#0A1B3D; --ink-2:#5B6B8C;
+    --mist:#D7E7F9; --cloud:#F6F8FC; --line:#E5EAF2; --line-2:#EEF1F6;
+    --white:#fff; --field:#D9E0EC; --tint:#E6F1FB; --tint-bd:#B5D4F4; --tint-tx:#185FA5;
+    --display:'Space Grotesk',sans-serif; --body:'Inter',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--body);color:var(--ink);background:var(--cloud);line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
+  a{text-decoration:none;color:inherit}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:15px 28px;background:var(--white);border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:20}
+  .crumb{display:flex;align-items:center;gap:13px}
+  .crumb .back{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);transition:color .2s}
+  .crumb .back:hover{color:var(--flow)}
+  .crumb .sep{color:#D4DBE6}
+  .crumb .cur{display:flex;align-items:center;gap:9px}
+  .crumb .cur b{font-family:var(--display);font-size:15px;color:var(--ink);font-weight:600}
+
+  .shell{max-width:600px;margin:0 auto;padding:34px 24px 60px}
+  .head{margin-bottom:22px}
+  .head h1{font-family:var(--display);font-size:24px;font-weight:600;letter-spacing:-.6px;color:var(--ink)}
+  .head p{font-size:14px;color:var(--ink-2);margin-top:5px}
+
+  .card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:24px}
+  .fg{margin-bottom:16px}
+  label.fl{font-size:12.5px;font-weight:500;color:var(--ink);display:block;margin-bottom:7px}
+  .input,.textarea{width:100%;border:1px solid var(--field);border-radius:9px;padding:11px 13px;font-size:14px;color:var(--ink);font-family:var(--body);background:#fff;transition:border-color .18s,box-shadow .18s}
+  .input:focus,.textarea:focus{outline:none;border-color:var(--flow);box-shadow:0 0 0 3px rgba(30,91,255,.12)}
+  .textarea{min-height:96px;resize:vertical;line-height:1.55}
+  .suffix-wrap{position:relative}
+  .suffix-wrap .sfx{position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:13px;color:#9AA7BF;pointer-events:none}
+
+  .anychain{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--tint);border:1px solid var(--tint-bd);border-radius:10px;margin-bottom:18px}
+  .anychain svg{flex-shrink:0}
+  .anychain span{font-size:12.5px;color:var(--tint-tx);line-height:1.45}
+
+  .btn-create{background:var(--flow);color:#fff;border:none;font-family:var(--display);font-size:14px;font-weight:500;padding:12px 20px;border-radius:100px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:transform .15s,box-shadow .25s;width:100%;justify-content:center}
+  .btn-create:hover{transform:translateY(-1px);box-shadow:0 12px 28px -10px rgba(30,91,255,.55)}
+
+  /* generated link panel */
+  .gen{margin-top:18px;display:none}
+  .gen.show{display:block;animation:fade .4s ease both}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .gen-inner{background:var(--tint);border:1px solid var(--tint-bd);border-radius:14px;padding:18px}
+  .gen-inner .gt{display:flex;align-items:center;gap:9px;font-family:var(--display);font-size:14px;font-weight:600;color:var(--tint-tx);margin-bottom:12px}
+  .linkrow{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--tint-bd);border-radius:9px;padding:10px 12px;margin-bottom:12px}
+  .linkrow .lk{flex:1;font-family:var(--display);font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .linkrow .ic{color:var(--flow);flex-shrink:0}
+  .gen-actions{display:flex;gap:9px}
+  .ga{flex:1;font-family:var(--display);font-size:13px;font-weight:500;padding:10px;border-radius:100px;cursor:pointer;border:none;display:flex;align-items:center;justify-content:center;gap:7px;transition:.15s}
+  .ga.copy{background:#fff;color:var(--flow);border:1px solid var(--tint-bd)}
+  .ga.copy:hover{background:#F0F6FF}
+  .ga.view{background:var(--flow);color:#fff;text-decoration:none}
+  .ga.view:hover{box-shadow:0 8px 20px -8px rgba(30,91,255,.6)}
+
+  @media(max-width:560px){.topbar{padding:13px 16px}.shell{padding:26px 16px 50px}.crumb .back span{display:none}}
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="crumb">
+      <a href="gateway.html" class="back"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Gateway</span></a>
+      <span class="sep">/</span>
+      <span class="cur">
+        <svg width="22" height="22" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="#D7E7F9" stroke-width="3.5"/><path d="M5 28 a23 23 0 0 1 46 0" fill="none" stroke="#1E5BFF" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#1E5BFF"/></svg>
+        <b>Potlock</b>
+      </span>
+    </div>
+  </div>
+
+  <div class="shell">
+    <div class="head">
+      <h1>Start a fundraiser</h1>
+      <p>Describe what you're raising for. We'll generate a public link with live progress and a donation address.</p>
+    </div>
+
+    <div class="card">
+      <div class="fg">
+        <label class="fl" for="title">Title</label>
+        <input class="input" id="title" type="text" placeholder="e.g. Rebuild the community library">
+      </div>
+
+      <div class="fg">
+        <label class="fl" for="goal">Goal amount</label>
+        <div class="suffix-wrap">
+          <input class="input" id="goal" type="text" placeholder="2" style="padding-right:120px;">
+          <span class="sfx">test ETH</span>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label class="fl" for="desc">Describe the need for funds</label>
+        <textarea class="textarea" id="desc" placeholder="Tell supporters what the funds are for…"></textarea>
+      </div>
+
+      <div class="fg">
+        <label class="fl" for="chain">Settlement chain</label>
+        <select class="input" id="chain">
+          <option value="eip155:84532">Base (ETH)</option>
+          <option value="eip155:5042002">Arc (USDC)</option>
+          <option value="solana">Solana (SOL)</option>
+          <option value="sui">Sui (SUI)</option>
+        </select>
+      </div>
+
+      <div class="anychain">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="#185FA5" stroke-width="1.7"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="#185FA5" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>Donations are private — a one-time stealth address is generated per donor on the chain you pick.</span>
+      </div>
+
+      <button class="btn-create" onclick="generate()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="9" stroke="#fff" stroke-width="1.6"/></svg>
+        Create &amp; generate link
+      </button>
+
+      <div class="gen" id="gen">
+        <div class="gen-inner">
+          <div class="gt"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8" stroke="#185FA5" stroke-width="1.8" stroke-linecap="round"/></svg>Your fundraiser link is ready</div>
+          <div class="linkrow">
+            <span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+            <span class="lk" id="link">liquidflow.xyz/pot/rebuild-library-7x4q</span>
+          </div>
+          <div class="gen-actions">
+            <button class="ga copy" onclick="copyLink()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15V5a2 2 0 0 1 2-2h10" stroke="currentColor" stroke-width="1.8"/></svg><span id="copylabel">Copy link</span></button>
+            <a class="ga view" href="potlock-fundraiser.html">View public page <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  async function generate(){
+    var btn=document.querySelector('.btn-create');
+    var title=document.getElementById('title').value.trim();
+    var goal=parseFloat((document.getElementById('goal').value||'').replace(/[^0-9.]/g,''))||0;
+    var desc=document.getElementById('desc').value.trim();
+    if(!title||!goal){ alert('Add a title and a goal.'); return; }
+    var old=btn.innerHTML; btn.disabled=true; btn.textContent='Creating…';
+    try{
+      var r=await fetch('/api/fundraisers',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({title:title, description:desc, goal:goal, chain:(document.getElementById('chain')||{}).value||'eip155:84532'})
+      });
+      if(!r.ok){ var e=await r.json().catch(()=>({})); throw new Error(e.error||'failed'); }
+      var d=await r.json();
+      var link=location.origin+'/potlock-private.html?id='+d.id;
+      var linkEl=document.getElementById('link'); if(linkEl) linkEl.textContent=link;
+      linkEl && linkEl.setAttribute('data-href', link);
+      // surface the campaign spend key (only shown once)
+      var gen=document.getElementById('gen');
+      if(!document.getElementById('frSpend')){
+        var note=document.createElement('div');
+        note.id='frSpend';
+        note.style.cssText='margin-top:14px;background:#FAEEDA;border:1px solid #EAD3A2;border-radius:10px;padding:11px 13px;font-size:12px;color:#854F0B;word-break:break-all';
+        note.innerHTML='<b>Save your campaign spend key</b> — only this can sweep donations to your wallet. Shown once:<br><code style="font-size:11px">'+d.spend_key+'</code>';
+        gen.appendChild(note);
+      }
+      var open=document.getElementById('openCampaign');
+      if(!open){
+        open=document.createElement('a'); open.id='openCampaign'; open.href=link;
+        open.textContent='Open live campaign →';
+        open.style.cssText='display:inline-block;margin-top:14px;font-weight:600;color:#1E5BFF';
+        gen.appendChild(open);
+      } else { open.href=link; }
+      gen.classList.add('show');
+      gen.scrollIntoView({behavior:'smooth',block:'center'});
+    }catch(err){ alert('Could not create campaign: '+err.message); }
+    finally{ btn.disabled=false; btn.innerHTML=old; }
+  }
+  function copyLink(){
+    var t=document.getElementById('link').textContent;
+    if(navigator.clipboard){navigator.clipboard.writeText(t).catch(()=>{});}
+    var l=document.getElementById('copylabel'); l.textContent='Copied';
+    setTimeout(()=>l.textContent='Copy link',1600);
+  }
+</script>
+</body>
+</html>

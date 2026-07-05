@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Set up your payment system — Liquid Flow</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="theme-toggle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --flow:#1E5BFF; --ink:#0A1B3D; --ink-2:#5B6B8C; --mist:#D7E7F9;
+    --cloud:#F6F8FC; --line:#E5EAF2; --line-2:#EEF1F6; --white:#fff;
+    --ok:#1D9E75; --ok-bg:#E1F5EE; --veil:#6E5BFF; --veil-bg:#EEEBFF;
+    --display:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--body);color:var(--ink);background:var(--cloud);line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--flow);text-decoration:none}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--white);border-bottom:1px solid var(--line-2)}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .wm{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.4px}
+  .brand .wm span{color:var(--flow);font-weight:500}
+  .exit{font-size:13px;color:var(--ink-2)}
+
+  .wrap{max-width:780px;margin:0 auto;padding:30px 24px 80px}
+
+  /* stepper */
+  .steps{display:flex;align-items:center;gap:0;margin-bottom:30px}
+  .step{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink-2);font-weight:500}
+  .step .num{width:24px;height:24px;border-radius:50%;background:var(--white);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:12px}
+  .step.active{color:var(--ink)}
+  .step.active .num{background:var(--flow);border-color:var(--flow);color:#fff}
+  .step.done .num{background:var(--ok);border-color:var(--ok);color:#fff}
+  .step-line{flex:1;height:1.5px;background:var(--line);margin:0 10px;min-width:14px}
+
+  .card{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:26px}
+  .card h1{font-family:var(--display);font-size:21px;font-weight:600;letter-spacing:-.5px;margin-bottom:4px}
+  .card .sub{font-size:13.5px;color:var(--ink-2);margin-bottom:22px}
+
+  .panel{display:none}
+  .panel.show{display:block}
+
+  .field{margin-bottom:22px}
+  .field > label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+  .field .hint{font-size:12px;color:var(--ink-2);margin-bottom:10px}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px}
+  .opt{border:1.5px solid var(--line);border-radius:11px;padding:12px 13px;cursor:pointer;transition:.15s;background:#fff;font-size:13.5px;display:flex;align-items:center;gap:9px}
+  .opt:hover{border-color:#C2CCDD}
+  .opt[aria-pressed="true"]{border-color:var(--flow);background:#F3F7FF}
+  .opt .tick{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .opt[aria-pressed="true"] .tick{background:var(--flow);border-color:var(--flow)}
+  .opt .tick svg{opacity:0}
+  .opt[aria-pressed="true"] .tick svg{opacity:1}
+  .opt .nm{font-weight:500}
+  .opt .meta{display:block;font-size:11px;color:var(--ink-2);font-weight:400}
+
+  input[type=text],select{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;font-family:var(--body);font-size:14px;color:var(--ink);background:#fff}
+  input[type=text]:focus,select:focus{outline:none;border-color:var(--flow);box-shadow:0 0 0 3px rgba(30,91,255,.12)}
+  input.mono{font-family:var(--mono);font-size:12.5px}
+
+  .toggle-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border:1.5px solid var(--line);border-radius:12px;padding:14px 16px}
+  .toggle-row .t{font-size:13.5px;font-weight:500}
+  .toggle-row .d{font-size:12px;color:var(--ink-2);margin-top:2px;max-width:46ch}
+  .switch{width:42px;height:24px;border-radius:100px;background:var(--line);position:relative;cursor:pointer;flex-shrink:0;transition:.2s;border:none}
+  .switch[aria-pressed="true"]{background:var(--flow)}
+  .switch::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s}
+  .switch[aria-pressed="true"]::after{transform:translateX(18px)}
+
+  .privacy-note{margin-top:10px;display:flex;gap:8px;font-size:11.5px;color:#4A3D9E;background:var(--veil-bg);border-radius:9px;padding:9px 11px;line-height:1.5}
+  .warn-note{margin-top:10px;display:flex;gap:8px;font-size:11.5px;color:#854F0B;background:#FAEEDA;border-radius:9px;padding:9px 11px;line-height:1.5}
+
+  .plans{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .plan{border:1.5px solid var(--line);border-radius:13px;padding:16px;cursor:pointer;transition:.15s}
+  .plan:hover{border-color:#C2CCDD}
+  .plan[aria-pressed="true"]{border-color:var(--flow);background:#F3F7FF}
+  .plan .pn{font-family:var(--display);font-weight:600;font-size:14px}
+  .plan .pp{font-size:20px;font-weight:600;margin:6px 0 2px;font-family:var(--display)}
+  .plan .py{font-size:12px;color:var(--ink-2)}
+
+  .nav{display:flex;justify-content:space-between;margin-top:26px}
+  .btn{font-family:var(--display);font-size:13.5px;font-weight:500;padding:12px 22px;border-radius:100px;cursor:pointer;border:none;transition:transform .15s,box-shadow .25s}
+  .btn-primary{background:var(--flow);color:#fff}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 24px -10px rgba(30,91,255,.55)}
+  .btn-ghost{background:#fff;color:var(--ink-2);border:1px solid var(--line)}
+  .btn-ghost:hover{color:var(--ink)}
+
+  /* review */
+  .rev-row{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--line-2);font-size:13.5px}
+  .rev-row:last-child{border-bottom:none}
+  .rev-row .k{color:var(--ink-2)}
+  .rev-row .v{font-weight:500;text-align:right}
+  .apikey{margin-top:18px;background:var(--ink);color:#fff;border-radius:12px;padding:16px}
+  .apikey .lbl{font-size:11px;color:#9DB0D4;font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px}
+  .apikey .key{font-family:var(--mono);font-size:13px;margin-top:6px;word-break:break-all;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .apikey .copy{background:rgba(255,255,255,.12);border:none;color:#fff;font-size:11px;padding:5px 10px;border-radius:7px;cursor:pointer;font-family:var(--display)}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="gateway.html" class="brand">
+      <svg width="26" height="26" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="#D7E7F9" stroke-width="3.5"/><path d="M5 28 a23 23 0 0 1 46 0" fill="none" stroke="#1E5BFF" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#1E5BFF"/></svg>
+      <span class="wm">Liquid<span>Flow</span></span>
+    </a>
+    <a class="exit" href="gateway.html">Exit setup</a>
+  </div>
+
+  <div class="wrap">
+    <div class="steps" id="stepper">
+      <div class="step active" data-s="0"><span class="num">1</span>Chains</div>
+      <span class="step-line"></span>
+      <div class="step" data-s="1"><span class="num">2</span>Settlement</div>
+      <span class="step-line"></span>
+      <div class="step" data-s="2"><span class="num">3</span>Privacy</div>
+      <span class="step-line"></span>
+      <div class="step" data-s="3"><span class="num">4</span>Plans</div>
+      <span class="step-line"></span>
+      <div class="step" data-s="4"><span class="num">5</span>Review</div>
+    </div>
+
+    <div class="card">
+      <!-- STEP 1: chains -->
+      <div class="panel show" data-panel="0">
+        <h1>Which chains will you accept?</h1>
+        <div class="sub">Pick one or more, or accept everything. You can change this later.</div>
+        <div class="field">
+          <div class="grid" id="chainGrid">
+            <button class="opt" aria-pressed="true" data-v="Base"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Base</span></button>
+            <button class="opt" aria-pressed="false" data-v="Arc"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Arc</span></button>
+            <button class="opt" aria-pressed="false" data-v="Solana"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Solana</span></button>
+            <button class="opt" aria-pressed="false" data-v="Sui"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Sui</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: settlement + DEX + unify -->
+      <div class="panel" data-panel="1">
+        <h1>How should funds settle?</h1>
+        <div class="sub">Choose what you want to keep, and whether to unify everything into it.</div>
+
+        <div class="field">
+          <label>Settlement currency</label>
+          <div class="hint">The asset you want to hold after payments arrive.</div>
+          <select id="settleCur">
+            <option value="USDC">USDC — USD stablecoin (recommended)</option>
+            <option value="USDT">USDT — USD stablecoin</option>
+            <option value="DAI">DAI — decentralized stablecoin</option>
+            <option value="ETH">ETH — native, no swap</option>
+            <option value="native">Keep each chain's native asset (no swap)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Liquidity unification</label>
+          <div class="toggle-row">
+            <div>
+              <div class="t">Unify all incoming crypto into my settlement currency</div>
+              <div class="d">Any asset on any chain is swapped to your settlement currency at payment time, locking value. If off, funds stay as sent.</div>
+            </div>
+            <button class="switch" id="unifySwitch" aria-pressed="true" onclick="toggleSwitch(this)"></button>
+          </div>
+          <div class="warn-note" id="unifyWarn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+            <span>Unification settles funds through NEAR Intents — slightly reduces on-chain privacy and is the area to confirm with counsel. Turn off for maximum privacy.</span>
+          </div>
+        </div>
+
+        <div class="field" id="dexField">
+          <label>Swap &amp; settlement provider</label>
+          <div class="hint">Swaps are settled through NEAR Intents. Routed through the public protocol — Liquid Flow never holds your funds.</div>
+          <div class="grid" id="dexGrid">
+            <button class="opt" aria-pressed="true" data-v="NEAR Intents"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">NEAR Intents<span class="meta">Intent-based settlement</span></span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: privacy -->
+      <div class="panel" data-panel="2">
+        <h1>Payment privacy</h1>
+        <div class="sub">Control how visible your payments are on-chain. All options are non-custodial.</div>
+
+        <div class="field">
+          <label>Deposit address mode</label>
+          <div class="hint">How payers receive an address to pay into.</div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <button class="opt" aria-pressed="true" data-v="instant" onclick="pickMode(this)" style="justify-content:flex-start">
+              <span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span>
+              <span class="nm">Instant forward<span class="meta">One gate address, funds forwarded to you instantly. Public & fast.</span></span>
+            </button>
+            <button class="opt" aria-pressed="false" data-v="stealth" onclick="pickMode(this)" style="justify-content:flex-start">
+              <span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span>
+              <span class="nm">Private (stealth)<span class="meta">Fresh unlinkable address per payment. You sweep later. Hides your balance.</span></span>
+            </button>
+          </div>
+          <div class="privacy-note" id="privNote" style="display:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2" style="flex-shrink:0;margin-top:1px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+            <span>Private mode: you publish a stealth key once at setup — no action needed per payment. Amounts stay visible so confirmations and tracking still work; payer↔you links are hidden. You sweep funds with your own key on your schedule.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 4: plans + payout + webhook -->
+      <div class="panel" data-panel="3">
+        <h1>Plans &amp; payout</h1>
+        <div class="sub">Set the prices payers see, where funds go, and where we notify you.</div>
+
+        <div class="field">
+          <label>Plan pricing</label>
+          <div class="hint">Two plans, monthly and yearly. These are the amounts payers are charged.</div>
+          <div class="plans" id="planGrid">
+            <div class="plan" aria-pressed="true" data-v="Starter ($10/mo)" onclick="pickPlan(this)">
+              <div class="pn">Starter</div>
+              <div class="pp">$10<span style="font-size:13px;color:var(--ink-2)">/mo</span></div>
+              <div class="py">or $100 / year</div>
+            </div>
+            <div class="plan" aria-pressed="false" data-v="Growth ($18/mo)" onclick="pickPlan(this)">
+              <div class="pn">Growth</div>
+              <div class="pp">$18<span style="font-size:13px;color:var(--ink-2)">/mo</span></div>
+              <div class="py">or $180 / year</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Payout wallet</label>
+          <div class="hint">Your own wallet address. You can sweep all liquidity here at any time — it stays under your control.</div>
+          <input type="text" class="mono" id="payout" placeholder="0x… your external wallet address">
+        </div>
+
+        <div class="field">
+          <label>Webhook URL</label>
+          <div class="hint">Where we send "payment confirmed" so your platform releases the service.</div>
+          <input type="text" class="mono" id="webhook" placeholder="https://yourplatform.com/api/liquidflow/webhook">
+        </div>
+      </div>
+
+      <!-- STEP 5: review -->
+      <div class="panel" data-panel="4">
+        <h1>Review &amp; create</h1>
+        <div class="sub">Confirm your configuration. This generates your API key and embeddable portal.</div>
+        <div id="reviewRows"></div>
+        <div class="apikey" id="apiKeyBox" style="display:none">
+          <div class="lbl">Your API key</div>
+          <div class="key"><span id="apiKeyVal">lf_live_••••••••••••••••</span><button class="copy" onclick="copyText(document.getElementById('apiKeyVal').textContent,this)">Copy</button></div>
+        </div>
+      </div>
+
+      <div class="nav">
+        <button class="btn btn-ghost" id="backBtn" onclick="go(-1)" style="visibility:hidden">Back</button>
+        <button class="btn btn-primary" id="nextBtn" onclick="go(1)">Continue</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let step=0; const TOTAL=5;
+  const cfg={ chains:['Base'], settle:'USDC', unify:true, dex:'NEAR Intents', mode:'instant', plan:'Starter ($10/mo)', payout:'', webhook:'' };
+
+  function pickPlan(el){
+    document.querySelectorAll('#planGrid .plan').forEach(p=>p.setAttribute('aria-pressed','false'));
+    el.setAttribute('aria-pressed','true'); cfg.plan=el.dataset.v;
+  }
+
+  // multi-select grids
+  function bindGrid(id, key){
+    document.getElementById(id).addEventListener('click', e=>{
+      const b=e.target.closest('.opt'); if(!b) return;
+      const cur=b.getAttribute('aria-pressed')==='true';
+      b.setAttribute('aria-pressed', String(!cur));
+      cfg[key]=[...document.querySelectorAll('#'+id+' .opt[aria-pressed="true"]')].map(o=>o.dataset.v);
+    });
+  }
+  bindGrid('chainGrid','chains');
+  // dex is single-select
+  document.getElementById('dexGrid').addEventListener('click', e=>{
+    const b=e.target.closest('.opt'); if(!b) return;
+    document.querySelectorAll('#dexGrid .opt').forEach(o=>o.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true'); cfg.dex=b.dataset.v;
+  });
+
+  function toggleSwitch(el){
+    const cur=el.getAttribute('aria-pressed')==='true';
+    el.setAttribute('aria-pressed',String(!cur));
+    cfg.unify=!cur;
+    document.getElementById('dexField').style.opacity=cfg.unify?'1':'.4';
+    document.getElementById('dexField').style.pointerEvents=cfg.unify?'auto':'none';
+    document.getElementById('unifyWarn').style.display=cfg.unify?'flex':'none';
+  }
+
+  function pickMode(el){
+    document.querySelectorAll('[data-panel="2"] .opt').forEach(o=>o.setAttribute('aria-pressed','false'));
+    el.setAttribute('aria-pressed','true'); cfg.mode=el.dataset.v;
+    document.getElementById('privNote').style.display=cfg.mode==='stealth'?'flex':'none';
+  }
+
+  function renderReview(){
+    cfg.payout=document.getElementById('payout').value;
+    cfg.webhook=document.getElementById('webhook').value;
+    cfg.settle=document.getElementById('settleCur').value;
+    const rows=[
+      ['Chains', cfg.chains.join(', ')||'—'],
+      ['Settlement currency', cfg.settle],
+      ['Liquidity unification', cfg.unify?('On · via '+cfg.dex):'Off (funds stay as sent)'],
+      ['Privacy mode', cfg.mode==='stealth'?'Private (stealth addresses)':'Instant forward (public)'],
+      ['Plans', 'Plan 1 $10/$100 · Plan 2 $18/$180'],
+      ['Payout wallet', cfg.payout? cfg.payout.slice(0,10)+'…'+cfg.payout.slice(-6):'—'],
+      ['Webhook', cfg.webhook||'—'],
+    ];
+    document.getElementById('reviewRows').innerHTML=rows.map(([k,v])=>
+      `<div class="rev-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+  }
+
+  function go(dir){
+    if(dir>0 && step<TOTAL-1){ step++; }
+    else if(dir<0 && step>0){ step--; }
+    else if(dir>0 && step===TOTAL-1){ createSystem(); return; }
+    update();
+  }
+
+  function update(){
+    document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('show', +p.dataset.panel===step));
+    document.querySelectorAll('.step').forEach(s=>{
+      const i=+s.dataset.s; s.classList.toggle('active', i===step); s.classList.toggle('done', i<step);
+    });
+    document.getElementById('backBtn').style.visibility = step===0?'hidden':'visible';
+    document.getElementById('nextBtn').textContent = step===TOTAL-1?'Create system':'Continue';
+    if(step===TOTAL-1) renderReview();
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  let _acct=null; // { key, spend_key, spend_key_ed25519, onboarding }
+
+  async function createSystem(){
+    const btn=document.getElementById('nextBtn');
+    btn.textContent='Creating…'; btn.disabled=true;
+    cfg.payout=document.getElementById('payout').value;
+    cfg.webhook=document.getElementById('webhook').value;
+    cfg.settle=document.getElementById('settleCur').value;
+    try {
+      const res=await fetch('/api/merchants',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(cfg),
+      });
+      if(!res.ok){const e=await res.json();throw new Error(e.error||'server error');}
+      const data=await res.json();
+      _acct={ key:data.api_key, spend_key:data.spend_key, spend_key_ed25519:data.spend_key_ed25519, onboarding:data.onboarding };
+      // remember key so the dashboard auto-signs in once active
+      try{ localStorage.setItem('lf_dash_key', data.api_key); }catch(e){}
+      renderActivation();
+    } catch(e) {
+      btn.textContent='Retry';
+      btn.disabled=false;
+      alert('Could not create system: '+e.message);
+    }
+  }
+
+  // Pay-to-activate: the gateway is created but INERT until the $5/mo fee is paid on Arc.
+  function renderActivation(){
+    const ob=_acct.onboarding;
+    const amt=(Number(ob.amount)/Math.pow(10, ob.decimals||6));
+    const panel=document.querySelector('[data-panel="4"]');
+    panel.innerHTML =
+      '<h1>Activate your gateway</h1>'
+      +'<div class="sub">Your gateway is created. Pay the <b>$'+amt+' / month</b> fee on <b>Arc (USDC)</b> to switch it on. This is your first run through the Liquid Flow payment flow — confirmation is automatic once the deposit lands on-chain.</div>'
+      +'<div class="apikey"><div class="lbl">Send exactly '+amt+' USDC on Arc to</div>'
+      +'<div class="key"><span class="mono" id="obAddr" style="word-break:break-all">'+ob.deposit_address+'</span><button class="copy" onclick="copyText(\''+ob.deposit_address+'\',this)">Copy</button></div></div>'
+      +'<div class="hint" id="obStatus" style="margin-top:12px">⏳ Waiting for your payment… (checks automatically every few seconds)</div>'
+      +'<div class="hint" style="margin-top:8px">Need Arc test USDC? Grab some free from the <a href="faucet.html" target="_blank">testnet faucet →</a></div>'
+      +'<div class="apikey" id="apiKeyBox" style="display:none;margin-top:16px"><div class="lbl">✅ Gateway active — your API key</div>'
+      +'<div class="key"><span id="apiKeyVal" class="mono"></span><button class="copy" onclick="copyText(document.getElementById(\'apiKeyVal\').textContent,this)">Copy</button></div></div>';
+    document.getElementById('backBtn').style.display='none';
+    const btn=document.getElementById('nextBtn');
+    btn.textContent='Waiting for payment…'; btn.disabled=true;
+    pollActivation();
+  }
+
+  async function pollActivation(){
+    const ob=_acct.onboarding;
+    let tries=0;
+    const tick=async()=>{
+      tries++;
+      try{
+        const r=await fetch('/api/payments/'+ob.payment_id,{headers:{'Authorization':'Bearer '+_acct.key}});
+        const p=await r.json();
+        if(p.status==='confirmed'){ onActivated(); return; }
+        if(p.status==='expired'){ document.getElementById('obStatus').innerHTML='⚠️ Invoice expired. Please restart setup.'; return; }
+      }catch(e){}
+      if(tries<240) setTimeout(tick, 5000); // poll up to ~20 min
+    };
+    tick();
+  }
+
+  function onActivated(){
+    document.getElementById('obStatus').innerHTML='✅ Payment confirmed on-chain. Your gateway is now active.';
+    document.getElementById('apiKeyVal').textContent=_acct.key;
+    document.getElementById('apiKeyBox').style.display='block';
+    if(_acct.spend_key){
+      const note=document.createElement('div');
+      note.className='warn-note'; note.style.marginTop='14px';
+      note.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>'
+        +'<span><strong>Save your spend key now — it will not be shown again.</strong> You need it to sweep stealth deposits to your wallet.<br><code style="word-break:break-all;font-size:11px">'+_acct.spend_key+'</code></span>';
+      document.getElementById('apiKeyBox').appendChild(note);
+    }
+    const btn=document.getElementById('nextBtn');
+    btn.textContent='Go to dashboard →'; btn.disabled=false;
+    btn.onclick=()=>{ window.location.href='dashboard.html'; };
+  }
+
+  function copyText(t,el){ navigator.clipboard.writeText(t); if(el) el.textContent='Copied'; }
+</script>
+</body>
+</html>

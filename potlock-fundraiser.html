@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Help rebuild the community library — Liquid Flow</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="theme-toggle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --flow:#1E5BFF; --flow-2:#5B8DFF; --ink:#0A1B3D; --ink-2:#5B6B8C;
+    --mist:#D7E7F9; --cloud:#F6F8FC; --line:#E5EAF2; --line-2:#EEF1F6;
+    --white:#fff; --green:#1D9E75; --green-bg:#E1F5EE; --green-tx:#0F6E56;
+    --display:'Space Grotesk',sans-serif; --body:'Inter',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--body);color:var(--ink);background:var(--cloud);line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
+  a{text-decoration:none;color:inherit}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--white);border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:20}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .wm{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.4px;color:var(--ink)}
+  .brand .wm span{color:var(--flow);font-weight:500}
+  .pub-pill{font-size:12px;color:var(--green-tx);background:var(--green-bg);padding:5px 12px;border-radius:100px;display:flex;align-items:center;gap:7px;font-weight:500}
+  .pub-pill .lt{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(29,158,117,.4);animation:pulse 2.2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(29,158,117,.35)}70%{box-shadow:0 0 0 6px rgba(29,158,117,0)}100%{box-shadow:0 0 0 0 rgba(29,158,117,0)}}
+
+  .page{max-width:920px;margin:0 auto;padding:30px 24px 60px;display:grid;grid-template-columns:1.5fr 1fr;gap:24px;align-items:start}
+  @media(max-width:780px){.page{grid-template-columns:1fr;gap:20px}}
+
+  .cover{height:200px;border-radius:16px;background:linear-gradient(135deg,#1E5BFF,#5B8DFF);display:flex;align-items:center;justify-content:center;margin-bottom:18px;position:relative;overflow:hidden}
+  .cover::after{content:"";position:absolute;width:260px;height:260px;border-radius:50%;border:1px solid rgba(255,255,255,.18);top:-90px;right:-40px}
+  .cover svg{position:relative;z-index:1}
+  .title{font-family:var(--display);font-size:24px;font-weight:600;color:var(--ink);letter-spacing:-.6px;margin-bottom:12px;line-height:1.2}
+  .org{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-2);margin-bottom:18px}
+  .org .av{width:26px;height:26px;border-radius:50%;background:#E6F1FB;display:flex;align-items:center;justify-content:center;color:var(--flow);font-size:10px;font-weight:600;font-family:var(--display)}
+  .org .pub{color:var(--green-tx);font-weight:500}
+  .desc{font-size:14.5px;color:#3A4A6B;line-height:1.7}
+  .desc h3{font-family:var(--display);font-size:15px;font-weight:600;color:var(--ink);margin:20px 0 8px}
+
+  /* right rail */
+  .rail{position:sticky;top:90px;display:flex;flex-direction:column;gap:14px}
+  .panel{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:20px}
+  .raised{display:flex;align-items:baseline;gap:7px}
+  .raised .amt{font-family:var(--display);font-size:30px;font-weight:600;color:var(--ink);letter-spacing:-1px}
+  .raised .lbl{font-size:13px;color:var(--ink-2)}
+  .goalline{font-size:13px;color:var(--ink-2);margin:9px 0 8px}
+  .bar{height:10px;background:var(--line-2);border-radius:100px;overflow:hidden}
+  .bar .fill{height:100%;background:linear-gradient(90deg,#1E5BFF,#5B8DFF);border-radius:100px;width:0;transition:width 1.4s cubic-bezier(.16,1,.3,1)}
+  .meta{display:flex;justify-content:space-between;margin-top:14px;font-size:12.5px;color:var(--ink-2)}
+  .meta .it{display:flex;align-items:center;gap:6px}
+  .meta .live .d{width:6px;height:6px;border-radius:50%;background:var(--green)}
+
+  .dtitle{font-size:12.5px;color:var(--ink-2);font-weight:500;margin-bottom:9px}
+  .anychip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--flow);background:#E6F1FB;border:1px solid #B5D4F4;padding:4px 10px;border-radius:100px;margin-bottom:12px}
+  .addr{display:flex;align-items:center;gap:8px;background:var(--cloud);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+  .addr .a{flex:1;font-family:var(--display);font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .addr .cp{background:none;border:none;color:var(--flow);font-size:11.5px;font-weight:600;cursor:pointer}
+  .qr-row{display:flex;gap:9px;margin-top:11px}
+  .qr{flex:1;height:52px;border:1px dashed #D9E0EC;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#9AA7BF;font-size:11px;gap:6px}
+  .donate{flex:2;background:var(--flow);color:#fff;border:none;font-family:var(--display);font-size:14px;font-weight:500;border-radius:9px;cursor:pointer;transition:transform .15s,box-shadow .25s}
+  .donate:hover{transform:translateY(-1px);box-shadow:0 10px 24px -10px rgba(30,91,255,.55)}
+
+  /* donations (anonymized) */
+  .don-head{font-size:12px;color:var(--ink-2);font-weight:500;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+  .don-head .d{width:6px;height:6px;border-radius:50%;background:var(--green)}
+  .don{display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--line-2)}
+  .don:first-of-type{border-top:none}
+  .don .hic{width:28px;height:28px;border-radius:50%;background:var(--green-bg);display:flex;align-items:center;justify-content:center;color:var(--green-tx);flex-shrink:0}
+  .don .dt{flex:1;font-size:13px;color:var(--ink-2)}
+  .don .dv{font-family:var(--display);font-size:13.5px;font-weight:500;color:var(--green-tx)}
+  .don .dtime{font-size:11px;color:#9AA7BF;margin-left:8px}
+
+  @media(max-width:780px){.rail{position:static}}
+  @media(max-width:560px){.topbar{padding:13px 16px}.page{padding:22px 16px 50px}}
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <a href="index.html" class="brand">
+      <svg width="26" height="26" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="#D7E7F9" stroke-width="3.5"/><path d="M5 28 a23 23 0 0 1 46 0" fill="none" stroke="#1E5BFF" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#1E5BFF"/></svg>
+      <span class="wm">Liquid<span>Flow</span></span>
+    </a>
+    <span class="pub-pill"><span class="lt"></span>Public fundraiser</span>
+  </div>
+
+  <div class="page">
+    <div class="main">
+      <div class="cover">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none"><path d="M4 19V8l8-4 8 4v11M4 19h16M9 19v-5h6v5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="title">Help rebuild the community library</div>
+      <div class="org">
+        <span class="av">CL</span>
+        Organized by Community Library Trust
+        <span>·</span><span class="pub">Public</span>
+      </div>
+      <div class="desc">
+        Our local library was damaged in the floods. We're raising funds to replace books, shelving, and reading equipment so the space can reopen for students this term.
+        <h3>Where the funds go</h3>
+        Every contribution is recorded on-chain and the running total is visible to everyone on this page. Funds support replacing the lost collection, repairing the reading room, and restocking learning materials for the new term.
+        <h3>Why it matters</h3>
+        The library serves hundreds of students and families each week. Reopening it quickly means classes and study groups can continue without interruption.
+      </div>
+    </div>
+
+    <div class="rail">
+      <div class="panel">
+        <div class="raised"><span class="amt">$36,000</span><span class="lbl">raised</span></div>
+        <div class="goalline">of $50,000 goal · <span id="pct">72%</span></div>
+        <div class="bar"><div class="fill" id="fill"></div></div>
+        <div class="meta">
+          <span class="it"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M3 19a6 6 0 0 1 12 0" stroke="currentColor" stroke-width="1.6"/></svg>214 donors</span>
+          <span class="it live"><span class="d"></span>Live</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="dtitle">Donate to this fundraiser</div>
+        <div class="anychip"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Base testnet</div>
+        <div style="margin:8px 0 10px">
+          <label id="donAmtLabel" style="font-size:12px;font-weight:500;display:block;margin-bottom:6px;color:var(--ink)">Amount (test ETH)</label>
+          <input id="donAmt" value="0.001" inputmode="decimal" style="width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:13.5px;font-family:'JetBrains Mono',monospace;color:var(--ink);background:var(--white)">
+        </div>
+        <div class="addr" id="addrWrap" style="display:none">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="#1E5BFF" stroke-width="1.6"/><path d="M16 12h.5" stroke="#1E5BFF" stroke-width="2" stroke-linecap="round"/></svg>
+          <span class="a" id="addr">—</span>
+          <button class="cp" onclick="copyAddr()" id="cplabel">Copy</button>
+        </div>
+        <div id="donNote" style="font-size:11.5px;color:var(--ink-2);margin:8px 0;display:none"></div>
+        <div class="qr-row">
+          <button class="donate" onclick="donate()" id="donateBtn">Donate now</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="don-head"><span class="d"></span>Recent donations</div>
+        <div class="don">
+          <span class="hic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-9-9a4.5 4.5 0 0 1 9-2 4.5 4.5 0 0 1 9 2c-2 4.5-9 9-9 9z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span>
+          <span class="dt">Anonymous donation</span>
+          <span class="dv">+$500</span><span class="dtime">2m ago</span>
+        </div>
+        <div class="don">
+          <span class="hic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-9-9a4.5 4.5 0 0 1 9-2 4.5 4.5 0 0 1 9 2c-2 4.5-9 9-9 9z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span>
+          <span class="dt">Anonymous donation</span>
+          <span class="dv">+$120</span><span class="dtime">9m ago</span>
+        </div>
+        <div class="don">
+          <span class="hic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-9-9a4.5 4.5 0 0 1 9-2 4.5 4.5 0 0 1 9 2c-2 4.5-9 9-9 9z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span>
+          <span class="dt">Anonymous donation</span>
+          <span class="dv">+$1,000</span><span class="dtime">14m ago</span>
+        </div>
+        <div class="don">
+          <span class="hic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-9-9a4.5 4.5 0 0 1 9-2 4.5 4.5 0 0 1 9 2c-2 4.5-9 9-9 9z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span>
+          <span class="dt">Anonymous donation</span>
+          <span class="dv">+$250</span><span class="dtime">22m ago</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const FR_ID = new URLSearchParams(location.search).get('id');
+  let lastRaised = 0, FR_DEC = 18, FR_SYM = 'ETH';
+
+  function fmtAgo(ts){ if(!ts) return ''; var s=(Date.now()-ts)/1000; if(s<60) return Math.floor(s)+'s ago'; if(s<3600) return Math.floor(s/60)+'m ago'; if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
+
+  async function loadFundraiser(){
+    const r = await fetch('/api/fundraisers/'+FR_ID);
+    if(!r.ok) throw new Error('not found');
+    const f = await r.json();
+    FR_DEC = f.decimals!=null ? f.decimals : 18; FR_SYM = f.symbol || 'ETH';
+    document.querySelector('.title').textContent = f.title;
+    if(f.description){
+      const desc=document.querySelector('.desc');
+      // replace only the leading text node, keep the "Where the funds go" subsections
+      if(desc && desc.firstChild) desc.firstChild.textContent = f.description + ' ';
+    }
+    document.querySelector('.amt').textContent = f.raised + ' ' + FR_SYM;
+    document.querySelector('.goalline').innerHTML = 'of '+f.goal+' test '+FR_SYM+' goal · <span id="pct">'+f.pct+'%</span>';
+    document.querySelector('.meta .it').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M3 19a6 6 0 0 1 12 0" stroke="currentColor" stroke-width="1.6"/></svg>'+f.donation_count+' donors';
+    const al=document.getElementById('donAmtLabel'); if(al) al.textContent='Amount (test '+FR_SYM+')';
+    setTimeout(()=>{ document.getElementById('fill').style.width=f.pct+'%'; },150);
+    // recent donations
+    const list=document.querySelectorAll('.don');
+    const recent=f.recent||[];
+    list.forEach((el,i)=>{
+      if(recent[i]){
+        el.style.display='';
+        el.querySelector('.dt').textContent='Anonymous donation';
+        el.querySelector('.dv').textContent='+'+(Math.round((recent[i].amount||0)*1e6)/1e6)+' '+FR_SYM;
+        el.querySelector('.dtime').textContent=fmtAgo(recent[i].at);
+      } else { el.style.display='none'; }
+    });
+    if(!recent.length){ const dh=document.querySelector('.don-head'); if(dh) dh.insertAdjacentHTML('afterend','<div class="don" style="color:var(--ink-2);font-size:12.5px">No donations yet — be the first.</div>'); }
+    lastRaised=f.raised;
+    return f;
+  }
+
+  async function init(){
+    if(!FR_ID){ location.replace('campaigns.html'); return; }
+    try{ await loadFundraiser(); }
+    catch(e){ document.querySelector('.title').textContent='Campaign not found'; }
+  }
+  init();
+
+  let _poll=null;
+  async function donate(){
+    if(!FR_ID){ alert('This is a demo page. Open a real campaign link (…?id=…) to donate.'); return; }
+    const btn=document.getElementById('donateBtn'); const note=document.getElementById('donNote');
+    const eth=parseFloat(document.getElementById('donAmt').value||'0.001')||0.001;
+    const wei=BigInt(Math.round(eth*Math.pow(10,FR_DEC))).toString();
+    const old=btn.textContent; btn.textContent='Generating…'; btn.disabled=true;
+    try{
+      const r=await fetch('/api/fundraisers/'+FR_ID,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:wei})});
+      if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.error||'failed'); }
+      const p=await r.json();
+      document.getElementById('addr').textContent=p.deposit_address;
+      document.getElementById('addrWrap').style.display='';
+      note.style.display='block';
+      note.textContent='Send '+eth+' test '+FR_SYM+' to this one-time address. Confirming automatically…';
+      const before=lastRaised;
+      if(_poll) clearInterval(_poll);
+      _poll=setInterval(async()=>{
+        try{
+          const s=await fetch('/api/payments/'+p.payment_id); const sd=await s.json();
+          if(sd.status==='confirmed'){ clearInterval(_poll); note.innerHTML='✅ <b>Donation confirmed.</b> Added to the total.'; await loadFundraiser(); }
+        }catch(_){}
+      },6000);
+    }catch(err){ note.style.display='block'; note.textContent='Could not reach API: '+err.message; }
+    finally{ btn.textContent=old; btn.disabled=false; }
+  }
+
+  function copyAddr(){
+    var t=document.getElementById('addr').textContent;
+    if(navigator.clipboard){navigator.clipboard.writeText(t).catch(()=>{});}
+    var l=document.getElementById('cplabel'); l.textContent='Copied';
+    setTimeout(()=>l.textContent='Copy',1500);
+  }
+</script>
+</body>
+</html>

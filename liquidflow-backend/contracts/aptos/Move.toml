@@ -1,0 +1,11 @@
+[package]
+name = "liquidflow_platform_wallet"
+version = "0.1.0"
+
+[addresses]
+liquidflow = "_"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"

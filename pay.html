@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liquid Flow — Checkout</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--flow:#1E5BFF;--flow-2:#5B8DFF;--ink:#0A1B3D;--ink-2:#5B6B8C;--mist:#D7E7F9;--cloud:#F6F8FC;--line:#E5EAF2;--line-2:#EEF1F6;--white:#fff;--ok:#1D9E75;--ok-bg:#E1F5EE;--ok-tx:#0F6E56;--warn-bg:#FAEEDA;--warn-tx:#854F0B;--err:#A32D2D;--display:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--body);color:var(--ink);background:var(--cloud);line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px}
+  .brand{display:flex;align-items:center;gap:9px;margin:8px 0 22px}
+  .brand .wm{font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:-.4px;color:var(--ink)}.brand .wm span{color:var(--flow);font-weight:500}
+  .card{width:100%;max-width:420px;background:var(--white);border:1px solid var(--line);border-radius:20px;padding:26px;box-shadow:0 12px 40px rgba(10,27,61,.06)}
+  .merchant{font-size:13px;color:var(--ink-2);font-weight:500}
+  .label{font-size:14px;color:var(--ink);font-weight:500;margin-top:2px}
+  .amount{font-family:var(--display);font-size:38px;font-weight:600;letter-spacing:-1.2px;margin:14px 0 2px;display:flex;align-items:baseline;gap:8px}
+  .amount .sym{font-size:18px;color:var(--ink-2);font-weight:500}
+  .chip{display:inline-block;background:#EAF1FF;color:var(--flow);border-radius:100px;padding:3px 11px;font-size:12px;font-weight:600;margin-top:4px}
+  .qr{display:flex;justify-content:center;margin:22px 0 8px}
+  .qr img{width:180px;height:180px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:8px}
+  .addr-lbl{font-size:12px;color:var(--ink-2);font-weight:500;margin:16px 0 6px}
+  .addr{display:flex;align-items:center;gap:8px;background:var(--cloud);border:1px solid var(--line-2);border-radius:11px;padding:11px 13px}
+  .addr span{font-family:var(--mono);font-size:12.5px;word-break:break-all;color:var(--ink);flex:1}
+  .copy{background:var(--white);border:1px solid var(--line-2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--ink-2);cursor:pointer;white-space:nowrap}.copy:hover{background:#EAF1FF;color:var(--flow)}
+  .status{display:flex;align-items:center;gap:9px;margin-top:20px;padding:13px 15px;border-radius:12px;font-size:13.5px;font-weight:500}
+  .status.wait{background:var(--warn-bg);color:var(--warn-tx)}
+  .status.ok{background:var(--ok-bg);color:var(--ok-tx)}
+  .status.bad{background:#FBE9E9;color:var(--err)}
+  .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  .dot.pulse{background:currentColor;animation:pulse 1.3s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .expiry{font-size:12px;color:var(--ink-2);text-align:center;margin-top:14px}
+  .foot{font-size:11.5px;color:var(--ink-2);text-align:center;margin-top:18px;line-height:1.5}
+  .spinner{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--flow);border-radius:50%;animation:spin .8s linear infinite;margin:40px auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+  <div class="brand"><svg width="24" height="24" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="#D7E7F9" stroke-width="3.5"/><path d="M5 28 a23 23 0 0 1 46 0" fill="none" stroke="#1E5BFF" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#1E5BFF"/></svg><span class="wm">Liquid<span>Flow</span></span></div>
+
+  <div class="card" id="card">
+    <div class="spinner" id="spin"></div>
+  </div>
+
+<script>
+  var id = new URLSearchParams(location.search).get('id');
+  var poll=null, expiryTimer=null;
+
+  function fmtAmt(base, dec){ try{ return (Number(base)/Math.pow(10, dec!=null?dec:18)).toString(); }catch(e){ return base; } }
+  function short(a){ return a ? a.slice(0,12)+'…'+a.slice(-8) : ''; }
+  function copyAddr(a,el){ if(navigator.clipboard) navigator.clipboard.writeText(a); if(el){ var o=el.textContent; el.textContent='Copied'; setTimeout(function(){el.textContent=o;},1200);} }
+
+  function render(p){
+    var amt = fmtAmt(p.amount, p.decimals);
+    var qr = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data=' + encodeURIComponent(p.deposit_address);
+    var statusHtml, statusCls, statusDot;
+    if(p.status==='confirmed'){
+      statusCls='ok'; statusDot=''; statusHtml='✅ Payment confirmed. You can return to '+esc(p.merchant_name)+'.';
+    } else if(p.status==='expired'){
+      statusCls='bad'; statusDot=''; statusHtml='This payment window has expired. Please start a new payment.';
+    } else if(p.status==='cancelled'){
+      statusCls='bad'; statusDot=''; statusHtml='This payment was cancelled.';
+    } else {
+      statusCls='wait'; statusDot='<span class="dot pulse"></span>'; statusHtml='Waiting for your payment — this confirms automatically once it lands on-chain.';
+    }
+    var showPay = (p.status!=='confirmed' && p.status!=='expired' && p.status!=='cancelled');
+    var html =
+      '<div class="merchant">Pay '+esc(p.merchant_name)+'</div>'
+      + (p.label ? '<div class="label">'+esc(p.label)+'</div>' : '')
+      + '<div class="amount">'+amt+'<span class="sym">'+esc(p.symbol||p.asset)+'</span></div>'
+      + '<div class="chip">'+chainName(p.chain)+'</div>';
+    if(showPay){
+      html +=
+        '<div class="qr"><img alt="Scan to pay" src="'+qr+'"></div>'
+        + '<div class="addr-lbl">Send exactly '+amt+' '+esc(p.symbol||p.asset)+' to this address</div>'
+        + '<div class="addr"><span id="addr">'+esc(p.deposit_address)+'</span>'
+        + '<button class="copy" onclick="copyAddr(\''+p.deposit_address+'\',this)">Copy</button></div>';
+    }
+    html += '<div class="status '+statusCls+'">'+statusDot+'<span>'+statusHtml+'</span></div>';
+    if(showPay && p.expires_at){ html += '<div class="expiry" id="expiry"></div>'; }
+    html += '<div class="foot">Non-custodial — funds go straight to the merchant. Liquid Flow never holds your money. Secured by Liquid Flow.</div>';
+    document.getElementById('card').innerHTML = html;
+
+    if(showPay && p.expires_at) startExpiry(p.expires_at);
+    else if(expiryTimer){ clearInterval(expiryTimer); }
+    if(!showPay && poll){ clearInterval(poll); poll=null; }
+  }
+
+  function startExpiry(ts){
+    if(expiryTimer) clearInterval(expiryTimer);
+    var tick=function(){
+      var el=document.getElementById('expiry'); if(!el) return;
+      var s=Math.max(0, Math.floor((ts-Date.now())/1000));
+      var m=Math.floor(s/60), ss=('0'+(s%60)).slice(-2);
+      el.textContent = s>0 ? ('Expires in '+m+':'+ss) : 'Expired';
+    };
+    tick(); expiryTimer=setInterval(tick,1000);
+  }
+
+  function chainName(c){ return ({'eip155:84532':'Base','eip155:5042002':'Arc','eip155:8453':'Base','solana':'Solana','sui':'Sui'})[c] || c; }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[m];}); }
+
+  async function load(){
+    try{
+      var r=await fetch('/api/checkout/'+id);
+      if(!r.ok){ throw new Error((await r.json().catch(function(){return{};})).error || 'not found'); }
+      render(await r.json());
+    }catch(e){
+      document.getElementById('card').innerHTML='<div class="status bad"><span>Payment not found or no longer available.</span></div>';
+      if(poll){ clearInterval(poll); poll=null; }
+    }
+  }
+
+  if(!id){
+    document.getElementById('card').innerHTML='<div class="status bad"><span>Missing payment id.</span></div>';
+  } else {
+    load();
+    poll=setInterval(load, 4000); // live status until confirmed/expired
+  }
+</script>
+</body>
+</html>

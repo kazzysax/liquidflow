@@ -1,0 +1,12 @@
+{
+  "chain": "eip155:11155111",
+  "network": "eth-sepolia",
+  "deployer": "0x16633A3dc4Ba09CCbdB3303D384B8A152F1429a2",
+  "deployedAt": "2026-06-26T21:18:36.399Z",
+  "contracts": {
+    "PaymentGate": "0x21E79Eae30E6A8C2a5BeD993aB6352403A31D566",
+    "PlatformWallet": "0xa33561d9E8f9a2297272c0e374CC1B94A50a3691",
+    "SecurePlatformWallet": "0xE0E8cd76bc8EF5Dd3Ed1B81764fC4b46a774cfcc",
+    "PayrollScheduler": "0xeF75A5053a878B26bbB9eD3D5b548148Bc8a82d5"
+  }
+}

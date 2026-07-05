@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liquid Flow — Documentation</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="theme-toggle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--flow:#1E5BFF;--flow-2:#5B8DFF;--ink:#0A1B3D;--ink-2:#5B6B8C;--mist:#D7E7F9;--cloud:#F6F8FC;--line:#E5EAF2;--line-2:#EEF1F6;--white:#fff;--ok:#1D9E75;--ok-bg:#E1F5EE;--ok-tx:#0F6E56;--warn-bg:#FAEEDA;--warn-tx:#854F0B;--display:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--body);color:var(--ink);background:var(--cloud);line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--flow);text-decoration:none}a:hover{text-decoration:underline}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--white);border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:20;flex-wrap:wrap;gap:10px}
+  .brand{display:flex;align-items:center;gap:10px}.brand .wm{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.4px;color:var(--ink)}.brand .wm span{color:var(--flow);font-weight:500}
+  .docnav{display:flex;gap:6px;flex-wrap:wrap}
+  .docnav a{font-size:13px;color:var(--ink-2);padding:6px 12px;border-radius:100px;font-weight:500}
+  .docnav a.active,.docnav a:hover{background:#EAF1FF;color:var(--flow);text-decoration:none}
+  .wrap{max-width:860px;margin:0 auto;padding:40px 24px 90px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--flow);font-weight:500}
+  h1{font-family:var(--display);font-size:32px;font-weight:600;letter-spacing:-1px;margin:8px 0 10px}
+  .lead{font-size:16px;color:var(--ink-2);margin-bottom:26px}
+  h2{font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:-.5px;margin:38px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+  h3{font-family:var(--display);font-size:16px;font-weight:600;margin:22px 0 8px}
+  p{margin-bottom:12px}ul{margin:0 0 14px 20px}li{margin-bottom:6px}
+  code{font-family:var(--mono);font-size:12.5px;background:#EEF2F9;padding:2px 6px;border-radius:5px}
+  pre{background:#0A1B3D;color:#E6ECF7;border-radius:12px;padding:16px 18px;overflow:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6;margin:8px 0 16px}
+  pre code{background:none;padding:0;color:inherit;font-size:12.5px}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
+  @media(max-width:640px){.cards{grid-template-columns:1fr}}
+  .card{display:block;background:var(--white);border:1px solid var(--line);border-radius:14px;padding:18px;transition:transform .2s,border-color .2s,box-shadow .2s}
+  .card:hover{transform:translateY(-2px);border-color:var(--flow);box-shadow:0 16px 34px -22px rgba(10,27,61,.4);text-decoration:none}
+  .card .t{font-family:var(--display);font-weight:600;font-size:15px;margin-bottom:4px;color:var(--ink)}
+  .card .d{font-size:13px;color:var(--ink-2)}
+  .note{background:var(--warn-bg);border:1px solid #EAD3A2;color:var(--warn-tx);border-radius:11px;padding:13px 15px;font-size:13.5px;margin:16px 0}
+  .ok{background:var(--ok-bg);border:1px solid #B7E3D0;color:var(--ok-tx);border-radius:11px;padding:13px 15px;font-size:13.5px;margin:16px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:8px 0 18px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}th{color:var(--ink-2);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  .foot{max-width:860px;margin:0 auto;padding:24px;color:var(--ink-2);font-size:12.5px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html" class="brand">
+      <svg width="26" height="26" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="#D7E7F9" stroke-width="3.5"/><path d="M5 28 a23 23 0 0 1 46 0" fill="none" stroke="#1E5BFF" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#1E5BFF"/></svg>
+      <span class="wm">Liquid<span>Flow</span></span>
+    </a>
+    <nav class="docnav">
+      <a href="docs.html" class="active">Overview</a>
+      <a href="docs-api.html">API Reference</a>
+      <a href="security.html">Security</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="gateway.html">Gateway →</a>
+    </nav>
+  </div>
+
+  <div class="wrap">
+    <div class="eyebrow">Documentation</div>
+    <h1>Liquid Flow overview</h1>
+    <p class="lead">Liquid Flow is a private, non-custodial, multichain crypto-payment layer that platforms embed. It gives you three systems — merchant payments, private fundraising, and automated payroll — behind one API, without ever holding your keys or your funds.</p>
+
+    <div class="note">⚠️ <b>Testnet.</b> Everything described here runs on public testnets and is <b>unaudited</b>. Do not move real funds. An independent cryptographic and smart-contract audit gates mainnet — see the <a href="roadmap.html">Roadmap</a> and <a href="security.html">Security</a>.</div>
+
+    <h2>The three systems</h2>
+    <div class="cards">
+      <a class="card" href="integrate-setup.html"><div class="t">Integrate Payment →</div><div class="d">Accept crypto on your platform. Each payment gets a one-time stealth address; we confirm on-chain and webhook your app.</div></a>
+      <a class="card" href="potlock-create.html"><div class="t">Potlock →</div><div class="d">Private fundraising. Donors give to one-time addresses; only the running total is public, never who gave.</div></a>
+      <a class="card" href="payroll.html"><div class="t">Payroll →</div><div class="d">Automate scheduled crypto payouts (USDC or native). You fund and own the contract; Liquid Flow only triggers due payouts.</div></a>
+      <a class="card" href="docs-api.html"><div class="t">API Reference →</div><div class="d">Every endpoint for merchants, payments, fundraisers and payroll, with request/response examples.</div></a>
+    </div>
+
+    <h2>The non-custodial principle</h2>
+    <p>This is the single rule the whole product is built around:</p>
+    <div class="ok">🔒 <b>Liquid Flow can time and authorize, but never move funds.</b> Your spend key is shown to you once and is never stored on our servers. If Liquid Flow were fully compromised, no user money could be taken.</div>
+    <ul>
+      <li><b>Payments &amp; fundraising:</b> deposits land at one-time stealth addresses only you can sweep, using a key we never hold.</li>
+      <li><b>Payroll:</b> funds sit in a contract <i>you own</i>; our trigger key can only release a company-defined payout on or after its scheduled time, to the recipient you set.</li>
+    </ul>
+
+    <h2>How a payment works</h2>
+    <ol style="margin-left:20px">
+      <li><b>Request</b> — your platform calls <code>POST /api/payments</code>; we derive a fresh one-time stealth address.</li>
+      <li><b>Pay</b> — the payer sends crypto to that address on any supported chain. Nothing links it back to them.</li>
+      <li><b>Confirm</b> — our watcher sees the deposit on-chain and marks it settled (also on-demand when you poll).</li>
+      <li><b>Notify</b> — an HMAC-signed webhook hits your app with a copy-proof receipt; you release the goods.</li>
+    </ol>
+
+    <h2>Supported chains</h2>
+    <p>Multichain — EVM and non-EVM — with more added continuously. Live today:</p>
+    <table>
+      <tr><th>Chain</th><th>Type</th><th>Native asset</th><th>Stealth curve</th></tr>
+      <tr><td>Base</td><td>EVM</td><td>ETH</td><td>secp256k1</td></tr>
+      <tr><td>Arc (Circle)</td><td>EVM</td><td>USDC (6 dp)</td><td>secp256k1</td></tr>
+      <tr><td>Solana</td><td>non-EVM</td><td>SOL</td><td>ed25519</td></tr>
+      <tr><td>Sui</td><td>non-EVM</td><td>SUI</td><td>ed25519</td></tr>
+    </table>
+
+    <h2>Quickstart</h2>
+    <p>Create a merchant, then a payment. Full details in the <a href="docs-api.html">API Reference</a>.</p>
+    <pre><code># 1. Create a merchant (returns an API key)
+curl -X POST https://liquidflow-io.vercel.app/api/merchants \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Acme","mode":"stealth","webhook":"https://acme.com/hook"}'
+
+# 2. Create a payment (use the api_key from step 1)
+curl -X POST https://liquidflow-io.vercel.app/api/payments \
+  -H "Authorization: Bearer lf_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"amount":"1000000000000000","asset":"ETH","chain":"eip155:84532"}'
+# → { "deposit_address": "0x…", "status": "awaiting_payment", … }</code></pre>
+
+    <h2>Keep reading</h2>
+    <div class="cards">
+      <a class="card" href="docs-api.html"><div class="t">API Reference</div><div class="d">Endpoints, auth, webhooks, examples.</div></a>
+      <a class="card" href="security.html"><div class="t">Security &amp; audits</div><div class="d">Stealth crypto, contracts, and the path to audit.</div></a>
+      <a class="card" href="roadmap.html"><div class="t">Roadmap</div><div class="d">What's live, the audit plan, and AI integration.</div></a>
+      <a class="card" href="gateway.html"><div class="t">Access Gateway</div><div class="d">Set up a system and get your API key.</div></a>
+    </div>
+  </div>
+  <div class="foot">Liquid Flow provides software infrastructure for programmable, non-custodial transfers. Testnet only — not a bank, money transmitter, or investment adviser. Confirm your obligations with counsel before mainnet.</div>
+</body>
+</html>

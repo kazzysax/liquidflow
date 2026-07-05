@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liquid Flow — Payroll</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="theme-toggle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --flow:#1E5BFF; --flow-2:#5B8DFF; --ink:#0A1B3D; --ink-2:#5B6B8C;
+    --mist:#D7E7F9; --cloud:#F6F8FC; --line:#E5EAF2; --line-2:#EEF1F6; --white:#fff;
+    --ok:#1D9E75; --ok-bg:#E1F5EE; --ok-tx:#0F6E56;
+    --warn:#BA7517; --warn-bg:#FAEEDA; --warn-tx:#854F0B;
+    --display:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--body);color:var(--ink);background:var(--cloud);line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
+  a{color:var(--flow);text-decoration:none}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--white);border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:20}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .wm{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.4px}
+  .brand .wm span{color:var(--flow);font-weight:500}
+  .pill{font-size:12px;color:var(--ok-tx);background:var(--ok-bg);padding:6px 13px;border-radius:100px;font-weight:500;display:inline-flex;align-items:center;gap:7px}
+  .pill .lt{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 24px 80px}
+  h1{font-family:var(--display);font-size:24px;font-weight:600;letter-spacing:-.6px}
+  .sub{font-size:13px;color:var(--ink-2);margin-top:3px}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+  .card h2{font-family:var(--display);font-size:15px;font-weight:600;margin-bottom:14px}
+  .lf-input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:13.5px;color:var(--ink);background:var(--white);font-family:var(--body)}
+  .lf-input:focus{outline:none;border-color:var(--flow);box-shadow:0 0 0 3px rgba(30,91,255,.12)}
+  .mono{font-family:var(--mono)}
+  .btn{font-family:var(--display);font-weight:500;font-size:13.5px;padding:11px 18px;border-radius:11px;border:none;cursor:pointer;background:var(--flow);color:#fff;transition:transform .15s,box-shadow .25s,opacity .2s}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 12px 26px -12px rgba(30,91,255,.6)}
+  .btn:disabled{opacity:.5;cursor:default;transform:none;box-shadow:none}
+  .btn-ghost{background:var(--white);border:1px solid var(--line);color:var(--ink)}
+  .btn-sm{font-size:12px;padding:7px 12px;border-radius:9px}
+  .muted{font-size:12px;color:var(--ink-2)}
+  .row{display:grid;gap:10px}
+  .row.r3{grid-template-columns:1.4fr 1fr 1fr auto;align-items:end}
+  .row.r2{grid-template-columns:1fr auto;align-items:end}
+  @media(max-width:680px){.row.r3{grid-template-columns:1fr}}
+  label{font-size:12px;font-weight:500;display:block;margin-bottom:6px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+  @media(max-width:560px){.stats{grid-template-columns:1fr}}
+  .stat{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:15px 17px}
+  .stat .k{font-size:12px;color:var(--ink-2)}
+  .stat .v{font-family:var(--display);font-size:22px;font-weight:600;margin-top:3px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;color:var(--ink-2);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:0 8px 10px}
+  td{padding:11px 8px;border-top:1px solid var(--line-2);vertical-align:middle}
+  .badge{font-size:10.5px;font-weight:500;padding:3px 9px;border-radius:100px;display:inline-block}
+  .b-ok{background:var(--ok-bg);color:var(--ok-tx)} .b-due{background:var(--warn-bg);color:var(--warn-tx)} .b-sched{background:#EAF1FF;color:#1E5BFF} .b-x{background:#F0F1F4;color:#75839C}
+  .empty{text-align:center;color:var(--ink-2);font-size:13px;padding:24px 0}
+  .note{font-size:12px;color:var(--ink-2);background:var(--cloud);border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-top:6px;line-height:1.5}
+  .addr{font-family:var(--mono);font-size:11.5px;cursor:pointer}
+  .err{color:#A32D2D;font-size:12.5px;margin-top:8px;display:none}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html" class="brand">
+      <svg width="26" height="26" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="#D7E7F9" stroke-width="3.5"/><path d="M5 28 a23 23 0 0 1 46 0" fill="none" stroke="#1E5BFF" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#1E5BFF"/></svg>
+      <span class="wm">Liquid<span>Flow</span></span>
+    </a>
+    <span class="pill"><span class="lt"></span>Payroll · non-custodial</span>
+  </div>
+
+  <div class="wrap">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+      <div>
+        <h1>Automated payroll</h1>
+        <div class="sub">Fund a contract you own. Schedule who gets paid and when. Liquid Flow only triggers due payouts — it can never move or redirect your funds.</div>
+      </div>
+      <div id="walletBox"><button class="btn" onclick="connect()" id="connectBtn">Connect wallet</button></div>
+    </div>
+
+    <div class="card" id="needWallet" style="display:none">
+      <h2>Connect a wallet to begin</h2>
+      <p class="muted">Payroll runs on <b>Ethereum Sepolia</b> testnet. You'll deploy a payroll contract that <b>you own</b> — your wallet funds it and sets the schedule. Install MetaMask, then click <b>Connect wallet</b>.</p>
+    </div>
+
+    <div class="card" id="createCard" style="display:none">
+      <h2>Create your payroll</h2>
+      <div class="row r3" style="grid-template-columns:1.4fr 1fr auto">
+        <div><label>Name</label><input class="lf-input" id="prName" placeholder="Acme Inc · monthly salaries"></div>
+        <div><label>Pay in</label>
+          <select class="lf-input" id="prToken">
+            <option value="usdc">USDC (stablecoin)</option>
+            <option value="eth">ETH (native)</option>
+          </select>
+        </div>
+        <button class="btn" id="deployBtn" onclick="deployPayroll()">Deploy contract</button>
+      </div>
+      <div class="note">This deploys a payroll contract with <b>you</b> as owner and Liquid Flow as the time-trigger. Your wallet pays a small gas fee. Funds you add stay under your control — cancel or withdraw anytime. <span id="usdcFaucet">Need test USDC? <a href="https://faucet.circle.com" target="_blank">Circle faucet</a> (Ethereum Sepolia).</span></div>
+      <div class="err" id="createErr"></div>
+    </div>
+
+    <div id="dash" style="display:none">
+      <div class="stats">
+        <div class="stat"><div class="k">Contract balance</div><div class="v"><span id="sBal">0</span> <span class="muted" id="sym1"></span></div></div>
+        <div class="stat"><div class="k">Allocated to payouts</div><div class="v"><span id="sAlloc">0</span> <span class="muted" id="sym2"></span></div></div>
+        <div class="stat"><div class="k">Available to schedule</div><div class="v"><span id="sFree">0</span> <span class="muted" id="sym3"></span></div></div>
+      </div>
+
+      <div class="card">
+        <h2>Fund payroll</h2>
+        <div class="row r2">
+          <div><label>Amount (<span class="fsym"></span>)</label><input class="lf-input" id="fundAmt" value="10"></div>
+          <button class="btn" id="fundBtn" onclick="fund()">Send to contract</button>
+        </div>
+        <div class="muted" style="margin-top:8px">Your wallet sends <span class="fsym"></span> to the contract you own. <span id="contractLink"></span></div>
+      </div>
+
+      <div class="card">
+        <h2>Schedule a payout</h2>
+        <div class="row r3">
+          <div><label>Recipient address</label><input class="lf-input mono" id="empAddr" placeholder="0x…"></div>
+          <div><label>Amount (<span class="fsym"></span>)</label><input class="lf-input" id="empAmt" placeholder="5"></div>
+          <div><label>Release at</label><input class="lf-input" id="empWhen" type="datetime-local"></div>
+          <button class="btn" id="schedBtn" onclick="schedule()">Add</button>
+        </div>
+        <div class="muted" style="margin-top:8px"><a href="#" onclick="setSoon(event)">Set release to 2 minutes from now</a> (handy for a testnet run).</div>
+        <div class="err" id="schedErr"></div>
+      </div>
+
+      <div class="card">
+        <h2 style="display:flex;justify-content:space-between;align-items:center">Payouts <button class="btn btn-ghost btn-sm" onclick="load()">↻ Refresh</button></h2>
+        <table>
+          <thead><tr><th>Recipient</th><th>Amount</th><th>Release</th><th>Status</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="emptyMsg" style="display:none">No payouts yet — schedule one above.</div>
+      </div>
+
+      <div class="note">🔒 <b>Non-custodial:</b> Liquid Flow holds only a trigger key — it can release a payout <b>on or after</b> its time, <b>only</b> to the recipient you set. It cannot change recipients/amounts, redirect funds, or release early. You can cancel any payout before release and withdraw unallocated funds anytime.</div>
+    </div>
+  </div>
+
+<script src="payroll-artifact.js"></script>
+<script src="payroll-erc20-artifact.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script>
+  const OPERATOR = '0x16633A3dc4Ba09CCbdB3303D384B8A152F1429a2'; // Liquid Flow trigger (timing key only)
+  const SEPOLIA  = '0xaa36a7'; // 11155111
+  const TOKENS = {
+    usdc: { type:'erc20', symbol:'USDC', decimals:6, address:'0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' },
+    eth:  { type:'native', symbol:'ETH', decimals:18, address:null },
+  };
+  const ERC20_ABI = ['function transfer(address to,uint256 amount) returns (bool)','function balanceOf(address) view returns (uint256)'];
+  const PAYROLL_MIN_ABI = ['function schedule(address recipient,uint256 amount,uint64 releaseTime) returns (uint256)','function cancel(uint256 id)'];
+
+  let provider, signer, account, contractAddr=null, TK=TOKENS.usdc;
+
+  function short(a){ return a ? a.slice(0,8)+'…'+a.slice(-6) : ''; }
+  function fmt(x){ return (Math.round(Number(x)*1e6)/1e6).toString(); }
+  function ts(input){ return Math.floor(new Date(input).getTime()/1000); }
+  function setSymLabels(){ document.querySelectorAll('.fsym').forEach(e=>e.textContent=TK.symbol); ['sym1','sym2','sym3'].forEach(id=>{const e=document.getElementById(id); if(e) e.textContent=TK.symbol;}); }
+
+  async function connect(){
+    if(!window.ethereum){ alert('No wallet found. Install MetaMask to use payroll.'); return; }
+    try{
+      provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send('eth_requestAccounts', []);
+      const net = await provider.getNetwork();
+      if(net.chainId !== 11155111n){
+        try{ await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:SEPOLIA}]}); }
+        catch(e){ alert('Please switch your wallet to Ethereum Sepolia testnet.'); return; }
+        provider = new ethers.BrowserProvider(window.ethereum);
+      }
+      signer = await provider.getSigner();
+      account = await signer.getAddress();
+      document.getElementById('walletBox').innerHTML = '<span class="pill" style="background:#EAF1FF;color:#1E5BFF"><span class="lt" style="background:#1E5BFF"></span>'+short(account)+'</span>';
+      document.getElementById('needWallet').style.display='none';
+      await findOrCreate();
+    }catch(e){ alert('Connect failed: '+e.message); }
+  }
+
+  function tokenFromMeta(m){
+    if(m && m.token) return { type:'erc20', symbol:m.symbol||'USDC', decimals:m.decimals||6, address:m.token };
+    return TOKENS.eth;
+  }
+
+  async function findOrCreate(){
+    let saved=null; try{ saved=JSON.parse(localStorage.getItem('lf_payroll_'+account.toLowerCase())); }catch(e){}
+    if(!saved){
+      try{ const r=await fetch('/api/payroll?company='+account); const d=await r.json(); if(d.payrolls&&d.payrolls[0]){ const m=d.payrolls[0]; saved={contract:m.contract, token:tokenFromMeta(m)}; } }catch(e){}
+    }
+    if(saved){ contractAddr=saved.contract; TK=saved.token||TOKENS.usdc; persist(); setSymLabels(); showDash(); load(); }
+    else { document.getElementById('createCard').style.display='block'; document.getElementById('dash').style.display='none'; }
+  }
+
+  function persist(){ try{ localStorage.setItem('lf_payroll_'+account.toLowerCase(), JSON.stringify({contract:contractAddr, token:TK})); }catch(e){} }
+
+  async function deployPayroll(){
+    const btn=document.getElementById('deployBtn'); const err=document.getElementById('createErr'); err.style.display='none';
+    const name=document.getElementById('prName').value||'Payroll';
+    TK = TOKENS[document.getElementById('prToken').value] || TOKENS.usdc;
+    btn.disabled=true; btn.textContent='Deploying…';
+    try{
+      let c;
+      if(TK.type==='erc20'){
+        const f=new ethers.ContractFactory(window.PAYROLL_ERC20_ABI, window.PAYROLL_ERC20_BYTECODE, signer);
+        c=await f.deploy(account, OPERATOR, TK.address);
+      } else {
+        const f=new ethers.ContractFactory(window.PAYROLL_ABI, window.PAYROLL_BYTECODE, signer);
+        c=await f.deploy(account, OPERATOR);
+      }
+      await c.waitForDeployment();
+      contractAddr=await c.getAddress();
+      persist();
+      await fetch('/api/payroll',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contract:contractAddr, company:account, name, token:TK.address, decimals:TK.decimals, symbol:TK.symbol})});
+      document.getElementById('createCard').style.display='none';
+      setSymLabels(); showDash(); load();
+    }catch(e){ err.textContent='Deploy failed: '+(e.shortMessage||e.message); err.style.display='block'; }
+    finally{ btn.disabled=false; btn.textContent='Deploy contract'; }
+  }
+
+  function showDash(){
+    document.getElementById('dash').style.display='block';
+    document.getElementById('contractLink').innerHTML='Contract: <a href="https://sepolia.etherscan.io/address/'+contractAddr+'" target="_blank" class="mono">'+short(contractAddr)+'</a>';
+  }
+
+  function setSoon(e){ e.preventDefault(); const d=new Date(Date.now()+2*60*1000); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); document.getElementById('empWhen').value=d.toISOString().slice(0,16); }
+
+  function statusBadge(p){
+    if(p.cancelled) return '<span class="badge b-x">cancelled</span>';
+    if(p.released) return '<span class="badge b-ok">paid</span>';
+    if(p.release_time*1000<=Date.now()) return '<span class="badge b-due">due — releasing</span>';
+    return '<span class="badge b-sched">scheduled</span>';
+  }
+
+  async function load(){
+    if(!contractAddr) return;
+    try{
+      const r=await fetch('/api/payroll/'+contractAddr); const d=await r.json();
+      if(d.error) return;
+      if(d.symbol){ TK={type:d.token?'erc20':'native', symbol:d.symbol, decimals:d.decimals, address:d.token}; persist(); setSymLabels(); }
+      document.getElementById('sBal').textContent=fmt(d.balance);
+      document.getElementById('sAlloc').textContent=fmt(d.allocated);
+      document.getElementById('sFree').textContent=fmt(d.unallocated);
+      const rows=document.getElementById('rows'); const empty=document.getElementById('emptyMsg');
+      const list=(d.payouts||[]);
+      if(!list.length){ rows.innerHTML=''; empty.style.display='block'; return; }
+      empty.style.display='none';
+      rows.innerHTML=list.map(function(p){
+        const when=new Date(p.release_time*1000).toLocaleString();
+        const canCancel = !p.released && !p.cancelled;
+        const act = canCancel ? '<button class="btn btn-ghost btn-sm" onclick="cancelPayout('+p.id+')">Cancel</button>' : '';
+        return '<tr><td><span class="addr" onclick="copy(\''+p.recipient+'\')">'+short(p.recipient)+'</span></td>'
+          +'<td><b>'+fmt(p.amount_human)+'</b> '+(d.symbol||'')+'</td>'
+          +'<td class="muted">'+when+'</td>'
+          +'<td>'+statusBadge(p)+'</td>'
+          +'<td style="text-align:right">'+act+'</td></tr>';
+      }).join('');
+    }catch(e){}
+  }
+
+  function copy(t){ if(navigator.clipboard) navigator.clipboard.writeText(t).catch(function(){}); }
+
+  async function fund(){
+    const btn=document.getElementById('fundBtn'); btn.disabled=true; btn.textContent='Sending…';
+    try{
+      const amt=document.getElementById('fundAmt').value||'0';
+      if(TK.type==='erc20'){
+        const token=new ethers.Contract(TK.address, ERC20_ABI, signer);
+        const tx=await token.transfer(contractAddr, ethers.parseUnits(amt, TK.decimals));
+        await tx.wait();
+      } else {
+        const tx=await signer.sendTransaction({to:contractAddr, value:ethers.parseEther(amt)});
+        await tx.wait();
+      }
+      await load();
+    }catch(e){ alert('Fund failed: '+(e.shortMessage||e.message)+(TK.type==='erc20'?' — do you hold test '+TK.symbol+'?':'')); }
+    finally{ btn.disabled=false; btn.textContent='Send to contract'; }
+  }
+
+  async function schedule(){
+    const btn=document.getElementById('schedBtn'); const err=document.getElementById('schedErr'); err.style.display='none';
+    const addr=document.getElementById('empAddr').value.trim();
+    const amt=document.getElementById('empAmt').value;
+    const when=document.getElementById('empWhen').value;
+    if(!ethers.isAddress(addr)){ err.textContent='Enter a valid recipient address.'; err.style.display='block'; return; }
+    if(!amt||!when){ err.textContent='Enter an amount and a release time.'; err.style.display='block'; return; }
+    btn.disabled=true; btn.textContent='Scheduling…';
+    try{
+      const c=new ethers.Contract(contractAddr, PAYROLL_MIN_ABI, signer);
+      const tx=await c.schedule(addr, ethers.parseUnits(amt, TK.decimals), ts(when));
+      await tx.wait();
+      document.getElementById('empAddr').value=''; document.getElementById('empAmt').value='';
+      await load();
+    }catch(e){ err.textContent='Schedule failed: '+(e.shortMessage||e.message)+' (fund the contract first if balance is low).'; err.style.display='block'; }
+    finally{ btn.disabled=false; btn.textContent='Add'; }
+  }
+
+  async function cancelPayout(id){
+    try{
+      const c=new ethers.Contract(contractAddr, PAYROLL_MIN_ABI, signer);
+      const tx=await c.cancel(id); await tx.wait(); await load();
+    }catch(e){ alert('Cancel failed: '+(e.shortMessage||e.message)); }
+  }
+
+  window.addEventListener('load', async function(){
+    if(window.ethereum){
+      try{ const accs=await window.ethereum.request({method:'eth_accounts'}); if(accs&&accs.length) connect(); else document.getElementById('needWallet').style.display='block'; }
+      catch(e){ document.getElementById('needWallet').style.display='block'; }
+    } else { document.getElementById('needWallet').style.display='block'; }
+  });
+  if(window.ethereum){ window.ethereum.on('accountsChanged', ()=>location.reload()); window.ethereum.on('chainChanged', ()=>location.reload()); }
+  setInterval(()=>{ if(contractAddr) load(); }, 15000);
+</script>
+</body>
+</html>

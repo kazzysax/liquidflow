@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liquid Flow — API Reference</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="theme-toggle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--flow:#1E5BFF;--flow-2:#5B8DFF;--ink:#0A1B3D;--ink-2:#5B6B8C;--mist:#D7E7F9;--cloud:#F6F8FC;--line:#E5EAF2;--line-2:#EEF1F6;--white:#fff;--ok:#1D9E75;--ok-bg:#E1F5EE;--ok-tx:#0F6E56;--warn-bg:#FAEEDA;--warn-tx:#854F0B;--display:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--body);color:var(--ink);background:var(--cloud);line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--flow);text-decoration:none}a:hover{text-decoration:underline}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--white);border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:20;flex-wrap:wrap;gap:10px}
+  .brand{display:flex;align-items:center;gap:10px}.brand .wm{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.4px;color:var(--ink)}.brand .wm span{color:var(--flow);font-weight:500}
+  .docnav{display:flex;gap:6px;flex-wrap:wrap}.docnav a{font-size:13px;color:var(--ink-2);padding:6px 12px;border-radius:100px;font-weight:500}.docnav a.active,.docnav a:hover{background:#EAF1FF;color:var(--flow);text-decoration:none}
+  .wrap{max-width:880px;margin:0 auto;padding:40px 24px 90px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--flow);font-weight:500}
+  h1{font-family:var(--display);font-size:32px;font-weight:600;letter-spacing:-1px;margin:8px 0 10px}
+  .lead{font-size:16px;color:var(--ink-2);margin-bottom:26px}
+  h2{font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:-.5px;margin:40px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+  h3{font-family:var(--display);font-size:15.5px;font-weight:600;margin:26px 0 8px;display:flex;align-items:center;gap:9px}
+  .m{font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;color:#fff}
+  .get{background:#1D9E75}.post{background:#1E5BFF}
+  p{margin-bottom:12px}ul{margin:0 0 14px 20px}li{margin-bottom:6px}
+  code{font-family:var(--mono);font-size:12.5px;background:#EEF2F9;padding:2px 6px;border-radius:5px}
+  pre{background:#0A1B3D;color:#E6ECF7;border-radius:12px;padding:15px 17px;overflow:auto;font-family:var(--mono);font-size:12px;line-height:1.6;margin:8px 0 16px}
+  pre code{background:none;padding:0;color:inherit}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0 18px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--ink-2);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px}
+  td code{font-size:12px}
+  .note{background:var(--warn-bg);border:1px solid #EAD3A2;color:var(--warn-tx);border-radius:11px;padding:13px 15px;font-size:13.5px;margin:16px 0}
+  .foot{max-width:880px;margin:0 auto;padding:24px;color:var(--ink-2);font-size:12.5px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html" class="brand"><svg width="26" height="26" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="#D7E7F9" stroke-width="3.5"/><path d="M5 28 a23 23 0 0 1 46 0" fill="none" stroke="#1E5BFF" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#1E5BFF"/></svg><span class="wm">Liquid<span>Flow</span></span></a>
+    <nav class="docnav">
+      <a href="docs.html">Overview</a>
+      <a href="docs-api.html" class="active">API Reference</a>
+      <a href="security.html">Security</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="gateway.html">Gateway →</a>
+    </nav>
+  </div>
+
+  <div class="wrap">
+    <div class="eyebrow">API Reference</div>
+    <h1>REST API</h1>
+    <p class="lead">A small JSON/REST API. All amounts are in the asset's smallest base units (wei for 18-dp assets, e.g. <code>1000000</code> = 1 USDC at 6 dp). All timestamps are Unix ms unless noted.</p>
+
+    <h2>Base URL &amp; conventions</h2>
+    <ul>
+      <li><b>Base URL</b> — <code>https://liquidflow-io.vercel.app</code></li>
+      <li><b>Auth</b> — merchant/payment endpoints take <code>Authorization: Bearer &lt;api_key&gt;</code></li>
+      <li><b>Chains</b> — <code>eip155:84532</code> (Base), <code>eip155:5042002</code> (Arc), <code>solana</code>, <code>sui</code></li>
+      <li><b>Decimals</b> — ETH 18 · USDC 6 · SOL/SUI 9. Send <code>amount</code> in base units.</li>
+    </ul>
+    <div class="note">⚠️ Testnet, unaudited. Keys and receipts here guard payment <i>metadata</i> only — never funds.</div>
+
+    <h2>Merchants</h2>
+    <h3><span class="m post">POST</span> /api/merchants</h3>
+    <p>Create a merchant and receive an API key. In <code>stealth</code> mode you also get two spend keys (EVM + ed25519) shown <b>once</b> — they sweep your deposits.</p>
+    <pre><code>curl -X POST /api/merchants -H "Content-Type: application/json" -d '{
+  "name": "Acme",
+  "mode": "stealth",            // "stealth" (private) or "instant"
+  "plan": "Growth ($18/mo)",
+  "chains": ["eip155:84532"],
+  "settle": "USDC",
+  "payout": "0x…",              // instant mode payout wallet
+  "webhook": "https://acme.com/lf/hook"
+}'
+// → { "merchant_id","api_key":"lf_live_…","webhook_secret":"whsec_…",
+//     "mode","plan","spend_key","spend_key_ed25519" }</code></pre>
+    <h3><span class="m get">GET</span> /api/merchants</h3>
+    <p>Authenticated. Returns the merchant profile (name, mode, plan, chains, payout, webhook secret, created_at).</p>
+
+    <h2>Payments</h2>
+    <h3><span class="m post">POST</span> /api/payments</h3>
+    <p>Authenticated. Creates a payment and derives a one-time deposit address (stealth) for the chain.</p>
+    <pre><code>curl -X POST /api/payments -H "Authorization: Bearer lf_live_…" \
+  -H "Content-Type: application/json" -d '{
+  "amount": "1000000000000000",  // base units (0.001 ETH)
+  "asset": "ETH",
+  "chain": "eip155:84532",
+  "label": "Order #1024"
+}'
+// → { "payment_id","deposit_address","amount","asset","chain",
+//     "decimals","symbol","status":"awaiting_payment","expires_at" }</code></pre>
+    <h3><span class="m get">GET</span> /api/payments</h3>
+    <p>Authenticated. Lists the merchant's payments plus stats. Confirms any pending deposit that has landed on-chain (on-demand).</p>
+    <pre><code>// → { "payments":[…], "stats":{"total","confirmed","pending","volume"} }</code></pre>
+    <h3><span class="m get">GET</span> /api/payments/:id</h3>
+    <p>Returns one payment's status and runs an on-demand on-chain check (so a real deposit confirms within seconds). Merchant payments require the owning key; public fundraiser donations are readable by id.</p>
+    <h3><span class="m post">POST</span> /api/simulate/:id</h3>
+    <p>Test-only. Marks a payment confirmed and fires its webhook — handy for testing your webhook handler without sending funds. <code>→ { "ok":true, "webhook_sent":true }</code></p>
+
+    <h2>Fundraisers (Potlock)</h2>
+    <h3><span class="m post">POST</span> /api/fundraisers</h3>
+    <p>Create a private fundraising campaign with its own stealth keypair. Returns a shareable URL and the sweep key (once).</p>
+    <pre><code>curl -X POST /api/fundraisers -H "Content-Type: application/json" -d '{
+  "title": "Rebuild the library", "description":"…",
+  "goal": 2, "chain": "eip155:84532"
+}'
+// → { "id","slug","url":"/potlock-private.html?id=…","spend_key" }</code></pre>
+    <h3><span class="m get">GET</span> /api/fundraisers</h3><p>Public list of campaigns with live totals (computed from confirmed on-chain donations).</p>
+    <h3><span class="m get">GET</span> /api/fundraisers/:id</h3><p>Campaign details: <code>raised</code>, <code>pct</code>, <code>donation_count</code>, <code>recent[]</code>, <code>symbol</code>, <code>decimals</code>.</p>
+    <h3><span class="m post">POST</span> /api/fundraisers/:id</h3><p>Make a private donation. Body <code>{ "amount": "&lt;base units&gt;" }</code> → returns a one-time <code>deposit_address</code>.</p>
+
+    <h2>Payroll</h2>
+    <p>The business deploys its <b>own</b> <code>PayrollScheduler</code> (native) or <code>PayrollSchedulerERC20</code> (USDC) contract from its wallet, then registers it so Liquid Flow's trigger key can automate due releases. See <a href="security.html">Security</a> for the non-custodial guarantee.</p>
+    <h3><span class="m post">POST</span> /api/payroll</h3>
+    <pre><code>curl -X POST /api/payroll -H "Content-Type: application/json" -d '{
+  "contract": "0x…",  "company": "0x…", "name": "Acme payroll",
+  "token": "0x1c7D…7238", "decimals": 6, "symbol": "USDC"   // omit token for native
+}'</code></pre>
+    <h3><span class="m get">GET</span> /api/payroll?company=0x…</h3><p>List a company's payroll contracts.</p>
+    <h3><span class="m get">GET</span> /api/payroll/:contract</h3>
+    <p>Reads the contract's payouts + balances from chain and runs the on-demand keeper — releasing any due, company-defined payouts via the trigger key (batched for ERC-20). Add <code>?readonly=1</code> to read without triggering.</p>
+
+    <h2>Webhooks</h2>
+    <p>When a payment confirms, Liquid Flow POSTs a JSON event to your <code>webhook</code> URL:</p>
+    <pre><code>{ "type":"payment.confirmed", "payment_id":"pay_…", "amount":"…",
+  "asset":"ETH", "chain":"eip155:84532", "confirmations":3, "final":true }</code></pre>
+    <p>Each request carries a signature header. Verify it with your <code>webhook_secret</code>:</p>
+    <pre><code>Header:  LF-Signature: t=&lt;ms&gt;,v1=&lt;hex&gt;
+signed = HMAC_SHA256(webhook_secret, `${t}.${rawBody}`)   // compare to v1
+
+// Node
+const [ts,v1] = header.split(',').map(s=>s.split('=')[1]);
+const expected = crypto.createHmac('sha256', secret).update(`${ts}.${raw}`).digest('hex');
+const ok = crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected));</code></pre>
+    <p>Reject if the signature fails or the timestamp is stale. A copy-proof receipt is also issued to the payer as a fallback if a webhook is missed.</p>
+
+    <h2>Errors</h2>
+    <table>
+      <tr><th>Status</th><th>Meaning</th></tr>
+      <tr><td><code>400</code></td><td>Missing/invalid field, or an unsupported chain.</td></tr>
+      <tr><td><code>401</code></td><td>Invalid or missing API key.</td></tr>
+      <tr><td><code>404</code></td><td>Resource not found (or not yours).</td></tr>
+      <tr><td><code>405</code></td><td>Method not allowed on that route.</td></tr>
+    </table>
+  </div>
+  <div class="foot">Testnet, unaudited — see <a href="security.html">Security</a> and <a href="roadmap.html">Roadmap</a>.</div>
+</body>
+</html>

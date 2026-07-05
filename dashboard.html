@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liquid Flow — Merchant Dashboard</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="theme-toggle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --flow:#1E5BFF; --flow-2:#5B8DFF; --ink:#0A1B3D; --ink-2:#5B6B8C;
+    --mist:#D7E7F9; --cloud:#F6F8FC; --line:#E5EAF2; --line-2:#EEF1F6; --white:#fff;
+    --ok:#1D9E75; --ok-bg:#E1F5EE; --ok-tx:#0F6E56;
+    --warn:#BA7517; --warn-bg:#FAEEDA; --warn-tx:#854F0B;
+    --display:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--body);color:var(--ink);background:var(--cloud);line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
+  a{color:var(--flow);text-decoration:none}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--white);border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:20}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .wm{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.4px}
+  .brand .wm span{color:var(--flow);font-weight:500}
+  .pill{font-size:12px;color:var(--ok-tx);background:var(--ok-bg);padding:6px 13px;border-radius:100px;font-weight:500;display:inline-flex;align-items:center;gap:7px}
+  .pill .lt{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+  .wrap{max-width:1080px;margin:0 auto;padding:30px 24px 80px}
+
+  /* login */
+  .login{max-width:440px;margin:8vh auto 0;background:var(--white);border:1px solid var(--line);border-radius:18px;padding:30px}
+  .login h1{font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:-.5px;margin-bottom:6px}
+  .login p{font-size:13.5px;color:var(--ink-2);margin-bottom:18px}
+  .lf-input{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13.5px;font-family:var(--mono);color:var(--ink);background:var(--white)}
+  .lf-input:focus{outline:none;border-color:var(--flow);box-shadow:0 0 0 3px rgba(30,91,255,.12)}
+  .btn{font-family:var(--display);font-weight:500;font-size:14px;padding:12px 18px;border-radius:11px;border:none;cursor:pointer;background:var(--flow);color:#fff;transition:transform .15s,box-shadow .25s,opacity .2s}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 12px 26px -12px rgba(30,91,255,.6)}
+  .btn:disabled{opacity:.5;cursor:default;transform:none;box-shadow:none}
+  .btn-ghost{background:var(--white);border:1px solid var(--line);color:var(--ink)}
+  .btn-sm{font-size:12px;padding:7px 12px;border-radius:9px}
+  .muted{font-size:12px;color:var(--ink-2)}
+  .err{color:#A32D2D;font-size:12.5px;margin-top:10px;display:none}
+
+  /* dashboard */
+  .head-row{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  .head-row h1{font-family:var(--display);font-size:25px;font-weight:600;letter-spacing:-.7px}
+  .head-row .sub{font-size:13px;color:var(--ink-2);margin-top:3px}
+  .head-actions{display:flex;gap:9px;align-items:center}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+  @media(max-width:720px){.stats{grid-template-columns:1fr 1fr}}
+  .stat{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .stat .k{font-size:12px;color:var(--ink-2)}
+  .stat .v{font-family:var(--display);font-size:24px;font-weight:600;letter-spacing:-.5px;margin-top:4px}
+
+  .grid{display:grid;grid-template-columns:1.7fr 1fr;gap:18px;align-items:start}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:20px}
+  .card h2{font-family:var(--display);font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+  .card h2 .live{font-size:11px;color:var(--ok-tx);background:var(--ok-bg);padding:3px 9px;border-radius:100px;font-weight:500}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;color:var(--ink-2);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:0 8px 10px}
+  td{padding:11px 8px;border-top:1px solid var(--line-2);vertical-align:middle}
+  .mono{font-family:var(--mono);font-size:11.5px}
+  .addr{font-family:var(--mono);font-size:11px;color:var(--ink-2);cursor:pointer}
+  .badge{font-size:10.5px;font-weight:500;padding:3px 9px;border-radius:100px;display:inline-block}
+  .b-ok{background:var(--ok-bg);color:var(--ok-tx)} .b-wait{background:var(--warn-bg);color:var(--warn-tx)} .b-exp{background:#F0F1F4;color:#75839C}
+  .empty{text-align:center;color:var(--ink-2);font-size:13px;padding:26px 0}
+
+  .fg{margin-bottom:12px}
+  .fg label{font-size:12px;font-weight:500;display:block;margin-bottom:6px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .secretbox{margin-top:14px;background:var(--cloud);border:1px dashed #C2CCDD;border-radius:10px;padding:11px;font-family:var(--mono);font-size:10.5px;word-break:break-all;color:var(--ink-2)}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html" class="brand">
+      <svg width="26" height="26" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="#D7E7F9" stroke-width="3.5"/><path d="M5 28 a23 23 0 0 1 46 0" fill="none" stroke="#1E5BFF" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#1E5BFF"/></svg>
+      <span class="wm">Liquid<span>Flow</span></span>
+    </a>
+    <span class="pill"><span class="lt"></span>Merchant Dashboard</span>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="wrap" id="loginView">
+    <div class="login">
+      <h1>Merchant sign-in</h1>
+      <p>Paste your API key (starts with <span class="mono">lf_live_</span>) to monitor your payments. New here? <a href="integrate-setup.html">Create a system →</a></p>
+      <input class="lf-input" id="keyInput" placeholder="lf_live_..." autocomplete="off">
+      <div style="margin-top:14px"><button class="btn" id="loginBtn" onclick="login()" style="width:100%">Open dashboard</button></div>
+      <div class="err" id="loginErr"></div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="wrap" id="dashView" style="display:none">
+    <div class="head-row">
+      <div>
+        <h1 id="mName">Merchant</h1>
+        <div class="sub" id="mSub">—</div>
+      </div>
+      <div class="head-actions">
+        <button class="btn btn-ghost btn-sm" onclick="refresh()">↻ Refresh</button>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">Total payments</div><div class="v" id="sTotal">0</div></div>
+      <div class="stat"><div class="k">Confirmed</div><div class="v" id="sConf">0</div></div>
+      <div class="stat"><div class="k">Awaiting</div><div class="v" id="sPend">0</div></div>
+      <div class="stat"><div class="k">Confirmed volume</div><div class="v" id="sVol">0</div></div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Payments <span class="live" id="liveDot">● live</span></h2>
+        <div id="tableWrap">
+          <table>
+            <thead><tr><th>Created</th><th>Amount</th><th>Deposit address</th><th>Status</th><th></th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div class="empty" id="emptyMsg" style="display:none">No payments yet — create a test payment on the right.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Create a test payment</h2>
+        <div class="row2">
+          <div class="fg">
+            <label>Network</label>
+            <select class="lf-input" id="payChain" style="font-family:var(--body)" onchange="syncAsset()">
+              <option value="eip155:84532">Base</option>
+              <option value="eip155:5042002">Arc</option>
+              <option value="solana">Solana</option>
+              <option value="sui">Sui</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Amount (<span id="amtSym">ETH</span>)</label>
+            <input class="lf-input" id="payAmt" value="0.001" style="font-family:var(--body)">
+          </div>
+        </div>
+        <div class="fg">
+          <label>Label (optional)</label>
+          <input class="lf-input" id="payLabel" placeholder="Order #1024" style="font-family:var(--body)">
+        </div>
+        <button class="btn" id="createBtn" onclick="createPayment()" style="width:100%">Create payment</button>
+        <div class="muted" style="margin-top:10px">Send the payment to the deposit address. Liquid Flow's watcher confirms it on-chain automatically — you can't (and don't need to) mark it paid yourself. You may <b>Cancel</b> a payment while it's still awaiting.</div>
+
+        <div class="secretbox" id="secretBox" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  var KEY=null, timer=null;
+  var CHAIN_DEC={'eip155:84532':18,'eip155:5042002':6,'solana':9,'sui':9};
+  var CHAIN_SYM={'eip155:84532':'ETH','eip155:5042002':'USDC','solana':'SOL','sui':'SUI'};
+  function decOf(c){ return CHAIN_DEC[c]!=null?CHAIN_DEC[c]:18; }
+  function symOf(c){ return CHAIN_SYM[c]||'ETH'; }
+  function authHdr(){ return {'Authorization':'Bearer '+KEY,'Content-Type':'application/json'}; }
+  function short(a){ return a ? a.slice(0,10)+'…'+a.slice(-6) : ''; }
+  function fmtAmt(base, dec){ try{ return (Number(base)/Math.pow(10, dec!=null?dec:18)).toFixed(6).replace(/0+$/,'').replace(/\.$/,''); }catch(e){ return '0'; } }
+  function syncAsset(){ var c=document.getElementById('payChain').value; document.getElementById('amtSym').textContent=symOf(c); }
+  function ago(ts){ if(!ts) return ''; var s=(Date.now()-ts)/1000; if(s<60) return Math.floor(s)+'s ago'; if(s<3600) return Math.floor(s/60)+'m ago'; if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
+
+  async function login(){
+    var k=document.getElementById('keyInput').value.trim();
+    var err=document.getElementById('loginErr'); err.style.display='none';
+    if(!k){ err.textContent='Enter your API key.'; err.style.display='block'; return; }
+    var btn=document.getElementById('loginBtn'); btn.disabled=true; btn.textContent='Checking…';
+    try{
+      var r=await fetch('/api/merchants',{headers:{'Authorization':'Bearer '+k}});
+      if(!r.ok) throw new Error('Invalid API key');
+      var m=await r.json();
+      KEY=k; try{ localStorage.setItem('lf_dash_key',k); }catch(e){}
+      showDash(m);
+    }catch(e){ err.textContent=e.message; err.style.display='block'; }
+    finally{ btn.disabled=false; btn.textContent='Open dashboard'; }
+  }
+
+  function logout(){ KEY=null; try{ localStorage.removeItem('lf_dash_key'); }catch(e){} if(timer) clearInterval(timer);
+    document.getElementById('dashView').style.display='none'; document.getElementById('loginView').style.display='block'; }
+
+  function showDash(m){
+    document.getElementById('loginView').style.display='none';
+    document.getElementById('dashView').style.display='block';
+    document.getElementById('mName').textContent=m.name && m.name.length?m.name:'Merchant';
+    document.getElementById('mSub').textContent=(m.mode==='stealth'?'Stealth (private) mode':'Instant mode')
+      + (m.plan?(' · '+m.plan):'') + ' · '+m.merchant_id;
+    var sb=document.getElementById('secretBox');
+    sb.style.display='block';
+    sb.innerHTML='<b style="color:var(--ink)">Webhook secret</b><br>'+(m.webhook_secret||'—')
+      +'<br><b style="color:var(--ink)">API key</b><br>'+KEY;
+    refresh();
+    if(timer) clearInterval(timer);
+    timer=setInterval(refresh, 8000);
+  }
+
+  async function refresh(){
+    if(!KEY) return;
+    try{
+      var r=await fetch('/api/payments',{headers:authHdr()});
+      if(!r.ok) return;
+      var d=await r.json();
+      var s=d.stats||{};
+      document.getElementById('sTotal').textContent=s.total||0;
+      document.getElementById('sConf').textContent=s.confirmed||0;
+      document.getElementById('sPend').textContent=s.pending||0;
+      document.getElementById('sVol').textContent=s.volume||'0';
+      render(d.payments||[]);
+    }catch(e){}
+  }
+
+  function statusBadge(p){
+    var now=Date.now();
+    if(p.status==='confirmed') return '<span class="badge b-ok">confirmed</span>';
+    if(p.status==='cancelled') return '<span class="badge b-exp">cancelled</span>';
+    if(p.status==='expired' || (p.status==='awaiting_payment' && now>p.expires_at)) return '<span class="badge b-exp">expired</span>';
+    return '<span class="badge b-wait">awaiting</span>';
+  }
+
+  function render(payments){
+    var rows=document.getElementById('rows'); var empty=document.getElementById('emptyMsg');
+    if(!payments.length){ rows.innerHTML=''; empty.style.display='block'; return; }
+    empty.style.display='none';
+    rows.innerHTML=payments.map(function(p){
+      var now=Date.now();
+      var canCancel = p.status==='awaiting_payment' && now<p.expires_at;
+      var act = canCancel
+        ? '<button class="btn btn-ghost btn-sm" onclick="cancelPayment(\''+p.payment_id+'\')">Cancel</button>'
+        : (p.status==='confirmed' ? '<span class="muted">✓ '+ago(p.confirmed_at)+'</span>' : '');
+      return '<tr>'
+        +'<td class="muted">'+ago(p.created_at)+(p.label?'<br><span class="mono" style="color:var(--ink)">'+p.label+'</span>':'')+'</td>'
+        +'<td><b>'+fmtAmt(p.amount, p.decimals)+'</b> '+(p.symbol||p.asset||'')+'</td>'
+        +'<td><span class="addr" title="click to copy" onclick="copy(\''+p.deposit_address+'\')">'+short(p.deposit_address)+'</span></td>'
+        +'<td>'+statusBadge(p)+'</td>'
+        +'<td style="text-align:right">'+act+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+
+  function copy(t){ if(navigator.clipboard) navigator.clipboard.writeText(t).catch(function(){}); }
+
+  async function createPayment(){
+    var btn=document.getElementById('createBtn'); btn.disabled=true; btn.textContent='Creating…';
+    try{
+      var chain=document.getElementById('payChain').value;
+      var amt=parseFloat(document.getElementById('payAmt').value||'0');
+      var base=BigInt(Math.round(amt*Math.pow(10, decOf(chain)))).toString();
+      var body={ amount:base, asset:symOf(chain), chain:chain, label:document.getElementById('payLabel').value||'' };
+      var r=await fetch('/api/payments',{method:'POST',headers:authHdr(),body:JSON.stringify(body)});
+      if(!r.ok){ var e=await r.json().catch(function(){return{};}); throw new Error(e.error||'failed'); }
+      document.getElementById('payLabel').value='';
+      await refresh();
+    }catch(e){ alert('Could not create payment: '+e.message); }
+    finally{ btn.disabled=false; btn.textContent='Create payment'; }
+  }
+
+  async function cancelPayment(id){
+    if(!confirm('Cancel this pending payment? This only stops an unpaid payment — it cannot undo an on-chain deposit.')) return;
+    try{
+      var r=await fetch('/api/payments/'+id,{method:'POST',headers:authHdr()});
+      if(!r.ok){ var e=await r.json().catch(function(){return{};}); throw new Error(e.error||'failed'); }
+      await refresh();
+    }catch(e){ alert('Cancel failed: '+e.message); }
+  }
+
+  // auto-login if a key is saved
+  (function(){
+    var saved=null; try{ saved=localStorage.getItem('lf_dash_key'); }catch(e){}
+    if(saved){ document.getElementById('keyInput').value=saved; login(); }
+  })();
+  document.getElementById('keyInput').addEventListener('keydown',function(e){ if(e.key==='Enter') login(); });
+</script>
+</body>
+</html>

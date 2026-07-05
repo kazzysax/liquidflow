@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rebuild the Community Library — Liquid Flow Potlock</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="theme-toggle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --flow:#1E5BFF; --ink:#0A1B3D; --ink-2:#5B6B8C; --mist:#D7E7F9;
+    --cloud:#F6F8FC; --line:#E5EAF2; --line-2:#EEF1F6; --white:#fff;
+    --ok:#1D9E75; --ok-bg:#E1F5EE;
+    --veil:#6E5BFF; /* a violet accent that signals "private", distinct from Flow blue */
+    --veil-bg:#EEEBFF;
+    --display:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--body);color:var(--ink);background:var(--cloud);line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--flow);text-decoration:none}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--white);border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:20}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .wm{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.4px}
+  .brand .wm span{color:var(--flow);font-weight:500}
+  .privacy-pill{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#4A3D9E;background:var(--veil-bg);border:1px solid #D5CCFF;padding:6px 13px;border-radius:100px;font-weight:500}
+  .privacy-pill .lock{width:12px;height:12px}
+
+  .wrap{max-width:1000px;margin:0 auto;padding:32px 24px 80px}
+  .layout{display:grid;grid-template-columns:1.55fr 1fr;gap:28px;align-items:start}
+  @media(max-width:840px){.layout{grid-template-columns:1fr}}
+
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-2)}
+  h1{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.8px;margin:8px 0 12px;line-height:1.12}
+  .lede{font-size:15px;color:var(--ink-2);max-width:60ch}
+
+  /* SIGNATURE ELEMENT: the progression curve */
+  .curve-card{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:22px;margin-top:24px;position:relative;overflow:hidden}
+  .curve-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4px}
+  .raised{font-family:var(--display);font-size:34px;font-weight:600;letter-spacing:-1px;line-height:1}
+  .raised .unit{font-size:16px;color:var(--ink-2);font-weight:500;margin-left:4px}
+  .goal-label{font-size:13px;color:var(--ink-2);text-align:right}
+  .goal-label b{color:var(--ink);font-weight:600}
+  .curvewrap{margin-top:14px;position:relative}
+  svg.curve{display:block;width:100%;height:170px}
+  .progress-track{height:8px;background:var(--line-2);border-radius:100px;margin-top:14px;overflow:hidden}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--flow),#5B8DFF);border-radius:100px;width:0;transition:width 1.6s cubic-bezier(.22,1,.36,1)}
+  .meta-row{display:flex;gap:22px;margin-top:14px;font-size:13px;color:var(--ink-2)}
+  .meta-row b{color:var(--ink);font-weight:600;font-family:var(--mono)}
+
+  /* donate panel */
+  .donate{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:22px;position:sticky;top:88px}
+  .donate h2{font-family:var(--display);font-size:16px;font-weight:600;margin-bottom:3px}
+  .donate .sub{font-size:12.5px;color:var(--ink-2);margin-bottom:16px}
+  .chainsel{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+  .chip{font-size:12px;font-family:var(--mono);padding:7px 12px;border:1px solid var(--line);border-radius:100px;cursor:pointer;background:#fff;transition:.15s}
+  .chip[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .btn{width:100%;font-family:var(--display);font-size:14px;font-weight:500;padding:13px;border-radius:12px;border:none;cursor:pointer;background:var(--flow);color:#fff;transition:transform .15s,box-shadow .25s}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 12px 26px -12px rgba(30,91,255,.6)}
+  .stealth-out{margin-top:16px;display:none}
+  .stealth-out.show{display:block}
+  .addr-box{background:var(--cloud);border:1px dashed #C2CCDD;border-radius:10px;padding:12px;font-family:var(--mono);font-size:11.5px;word-break:break-all;color:var(--ink);position:relative}
+  .addr-note{display:flex;gap:8px;align-items:flex-start;margin-top:11px;font-size:11.5px;color:#4A3D9E;background:var(--veil-bg);border-radius:9px;padding:9px 11px}
+  .copy{position:absolute;top:9px;right:9px;font-size:10px;font-family:var(--display);background:#fff;border:1px solid var(--line);border-radius:7px;padding:4px 8px;cursor:pointer}
+
+  .privacy-explainer{margin-top:24px;background:var(--white);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+  .privacy-explainer h3{font-family:var(--display);font-size:14px;font-weight:600;margin-bottom:9px;display:flex;align-items:center;gap:8px}
+  .privacy-explainer p{font-size:13px;color:var(--ink-2);margin-bottom:8px}
+  .privacy-explainer .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+  @media(max-width:560px){.privacy-explainer .two{grid-template-columns:1fr}}
+  .pcell{border:1px solid var(--line-2);border-radius:11px;padding:12px}
+  .pcell .t{font-size:12.5px;font-weight:600;margin-bottom:3px}
+  .pcell .d{font-size:12px;color:var(--ink-2)}
+  .pcell.shown .t{color:var(--ok)} .pcell.hidden .t{color:var(--veil)}
+
+  .foot{margin-top:26px;font-size:11.5px;color:var(--ink-2);text-align:center}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html" class="brand">
+      <svg width="26" height="26" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="#D7E7F9" stroke-width="3.5"/><path d="M5 28 a23 23 0 0 1 46 0" fill="none" stroke="#1E5BFF" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#1E5BFF"/></svg>
+      <span class="wm">Liquid<span>Flow</span></span>
+    </a>
+    <span class="privacy-pill"><svg class="lock" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Private donations</span>
+  </div>
+
+  <div class="wrap">
+    <div class="layout">
+      <!-- LEFT: story + the signature progression curve -->
+      <div>
+        <div class="eyebrow">Potlock · community fund</div>
+        <h1>Rebuild the community library</h1>
+        <p class="lede">A flood damaged every shelf on the ground floor. We're raising funds to restock books, replace the children's reading corner, and reopen by autumn. Every donation is private — only the running total is public.</p>
+
+        <div class="curve-card">
+          <div class="curve-head">
+            <div>
+              <div class="raised"><span id="raisedNum">0</span><span class="unit">USD raised</span></div>
+            </div>
+            <div class="goal-label">of <b id="goalNum">$50,000</b> goal</div>
+          </div>
+
+          <div class="curvewrap">
+            <svg class="curve" id="curve" viewBox="0 0 600 170" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="fillGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#1E5BFF" stop-opacity="0.22"/>
+                  <stop offset="100%" stop-color="#1E5BFF" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path id="area" d="" fill="url(#fillGrad)"/>
+              <path id="line" d="" fill="none" stroke="#1E5BFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle id="head" r="4.5" fill="#1E5BFF" stroke="#fff" stroke-width="2"/>
+            </svg>
+          </div>
+
+          <div class="progress-track"><div class="progress-fill" id="fill"></div></div>
+          <div class="meta-row">
+            <span>Progress <b id="pct">0%</b></span>
+            <span>Donations <b id="count">0</b></span>
+            <span>Chains <b>5</b></span>
+          </div>
+        </div>
+
+        <div class="privacy-explainer">
+          <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>What's private, and what's public</h3>
+          <div class="two">
+            <div class="pcell hidden">
+              <div class="t">Hidden · who gave</div>
+              <div class="d">Each donation lands at a fresh stealth address. No one can link donations to you or to each other on-chain.</div>
+            </div>
+            <div class="pcell shown">
+              <div class="t">Public · total raised</div>
+              <div class="d">Only the aggregate total and this curve are shown — never individual donors or amounts tied to a name.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: private donate -->
+      <div class="donate">
+        <h2>Donate privately</h2>
+        <div class="sub">Pick a chain. We generate a one-time stealth address just for you.</div>
+        <div class="chainsel" id="chains">
+          <button class="chip" aria-pressed="true" data-c="Base">Base</button>
+          <button class="chip" aria-pressed="false" data-c="Arc">Arc</button>
+          <button class="chip" aria-pressed="false" data-c="Solana">Solana</button>
+          <button class="chip" aria-pressed="false" data-c="Sui">Sui</button>
+        </div>
+        <div style="margin-bottom:12px">
+          <label id="donAmtLabel" style="font-size:12px;font-weight:500;display:block;margin-bottom:6px;color:var(--ink)">Amount (test ETH)</label>
+          <input id="donAmt" value="0.001" inputmode="decimal"
+            style="width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:13.5px;font-family:var(--mono);color:var(--ink);background:var(--white)">
+        </div>
+        <button class="btn" onclick="genStealth()">Get my private address</button>
+
+        <div class="stealth-out" id="out">
+          <div class="addr-box" id="addrBox">
+            <span id="addr"></span>
+            <button class="copy" onclick="copyAddr()">Copy</button>
+          </div>
+          <div class="addr-note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 2v20M2 12h20"/></svg>
+            <span>This address is unique to you and used once. Send any amount of the selected asset — the campaign sees the total, not you.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">Non-custodial · the campaign controls its funds · Liquid Flow can compute the total but can never move donations.</div>
+  </div>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const FR_ID = params.get('id');
+
+  // ---- curve geometry ----
+  const Wd=600, Hd=170, pad=10;
+  function drawCurve(series, goal){
+    const raised = series[series.length-1];
+    const maxY = Math.max(goal*0.8, raised, 1);
+    const xs = i => pad + (i/(series.length-1))*(Wd-2*pad);
+    const ys = v => Hd-pad - (v/maxY)*(Hd-2*pad);
+    let line = `M ${xs(0)} ${ys(series[0])}`;
+    for(let i=1;i<series.length;i++){
+      const x0=xs(i-1),y0=ys(series[i-1]),x1=xs(i),y1=ys(series[i]);
+      const cx=(x0+x1)/2;
+      line += ` C ${cx} ${y0}, ${cx} ${y1}, ${x1} ${y1}`;
+    }
+    document.getElementById('line').setAttribute('d', line);
+    document.getElementById('area').setAttribute('d', line + ` L ${xs(series.length-1)} ${Hd-pad} L ${xs(0)} ${Hd-pad} Z`);
+    const head=document.getElementById('head');
+    head.setAttribute('cx', xs(series.length-1)); head.setAttribute('cy', ys(raised));
+    const lineEl=document.getElementById('line');
+    const len=lineEl.getTotalLength();
+    lineEl.style.strokeDasharray=len; lineEl.style.strokeDashoffset=len;
+    lineEl.animate([{strokeDashoffset:len},{strokeDashoffset:0}],{duration:1700,easing:'cubic-bezier(.22,1,.36,1)',fill:'forwards'});
+  }
+
+  function setStats(raised, goal, count, sym){
+    const pctVal = goal>0 ? Math.min(100, Math.round((raised/goal)*100)) : 0;
+    const rEl=document.getElementById('raisedNum');
+    const fmt = v => (Math.round(v*1e6)/1e6).toString();
+    const t0=performance.now();
+    (function tick(t){ const k=Math.min(1,(t-t0)/1200); const e=1-Math.pow(1-k,3); rEl.textContent=fmt(raised*e); if(k<1) requestAnimationFrame(tick); })(performance.now());
+    document.getElementById('count').textContent=Number(count).toLocaleString();
+    setTimeout(()=>{ document.getElementById('fill').style.width=pctVal+'%'; },200);
+    document.getElementById('pct').textContent=pctVal+'%';
+    const goalEl=document.getElementById('goalNum'); if(goalEl) goalEl.textContent = goal+' test '+sym;
+    const unitEl=document.querySelector('.raised .unit'); if(unitEl) unitEl.textContent = 'test '+sym+' raised';
+  }
+
+  let GOAL=0, count=0, lastRaised=0, FR_DEC=18, FR_SYM='ETH';
+
+  async function loadFundraiser(){
+    const r = await fetch('/api/fundraisers/'+FR_ID);
+    if(!r.ok) throw new Error('not found');
+    const f = await r.json();
+    FR_DEC = f.decimals!=null ? f.decimals : 18; FR_SYM = f.symbol || 'ETH';
+    document.querySelector('h1').textContent = f.title;
+    const lede=document.querySelector('.lede'); if(lede && f.description) lede.textContent=f.description;
+    GOAL=f.goal; count=f.donation_count; lastRaised=f.raised;
+    const s = f.raised>0 ? [0, f.raised*0.25, f.raised*0.55, f.raised*0.8, f.raised] : [0,0];
+    drawCurve(s, GOAL);
+    setStats(f.raised, GOAL, count, FR_SYM);
+    const al=document.getElementById('donAmtLabel'); if(al) al.textContent='Amount (test '+FR_SYM+')';
+    return f;
+  }
+
+  async function init(){
+    if(!FR_ID){ location.replace('campaigns.html'); return; }
+    try{ await loadFundraiser(); }
+    catch(e){ document.querySelector('h1').textContent='Campaign not found'; const l=document.querySelector('.lede'); if(l) l.textContent='This campaign does not exist. Browse active campaigns instead.'; }
+  }
+  init();
+
+  // ---- chain selector (display only; live donations settle on the campaign chain) ----
+  let chain='Base';
+  document.getElementById('chains').addEventListener('click',e=>{
+    const b=e.target.closest('.chip'); if(!b) return;
+    [...document.querySelectorAll('.chip')].forEach(c=>c.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true'); chain=b.dataset.c;
+  });
+
+  function rand(nbytes){ const a=new Uint8Array(nbytes); crypto.getRandomValues(a); return [...a].map(b=>b.toString(16).padStart(2,'0')).join(''); }
+  function fakeAddr(){
+    if(chain==='Solana') return btoa(rand(24)).replace(/[^A-Za-z0-9]/g,'').slice(0,44);
+    if(chain==='Sui') return '0x'+rand(32);
+    return '0x'+rand(20); // Base / Arc (EVM)
+  }
+
+  let _poll=null;
+  async function genStealth(){
+    const btn = (typeof event!=='undefined' && event.target) ? event.target : document.querySelector('.donate .btn');
+    const note = document.querySelector('#out .addr-note span');
+
+    // No real campaign loaded (demo page): show a representative address.
+    if(!FR_ID){
+      document.getElementById('addr').textContent = fakeAddr();
+      document.getElementById('out').classList.add('show');
+      if(note) note.textContent = 'This is a demo campaign. Create a real one at "Start a fundraiser" to mint live testnet addresses.';
+      return;
+    }
+
+    const eth = parseFloat((document.getElementById('donAmt')||{}).value||'0.001')||0.001;
+    const wei = BigInt(Math.round(eth*Math.pow(10,FR_DEC))).toString();
+    const old = btn.textContent; btn.textContent='Minting…'; btn.disabled=true;
+    try{
+      const r = await fetch('/api/fundraisers/'+FR_ID,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ amount: wei })
+      });
+      if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.error||'donation failed'); }
+      const p = await r.json();
+      document.getElementById('addr').textContent = p.deposit_address;
+      document.getElementById('out').classList.add('show');
+      if(note) note.textContent = 'Live one-time address (Base testnet). Send '+eth+' test ETH here — the campaign sees the total, not you. Watching for your deposit…';
+
+      // Poll the campaign total; when it rises, the donation has confirmed on-chain.
+      const before = lastRaised;
+      if(_poll) clearInterval(_poll);
+      _poll = setInterval(async ()=>{
+        try{
+          const f = await loadFundraiser();
+          if(f.raised > before){
+            clearInterval(_poll);
+            if(note) note.innerHTML = '✅ <strong>Donation confirmed on-chain.</strong> Added to the campaign total — your identity stays unlinked.';
+          }
+        }catch(_){}
+      }, 6000);
+    }catch(err){
+      document.getElementById('addr').textContent = fakeAddr();
+      document.getElementById('out').classList.add('show');
+      if(note) note.textContent = 'Could not reach the live API ('+err.message+').';
+    }finally{
+      btn.textContent=old; btn.disabled=false;
+    }
+  }
+  function copyAddr(){
+    navigator.clipboard.writeText(document.getElementById('addr').textContent);
+    const b=event.target; const o=b.textContent; b.textContent='Copied'; setTimeout(()=>b.textContent=o,1200);
+  }
+</script>
+</body>
+</html>

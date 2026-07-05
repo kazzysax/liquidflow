@@ -1,0 +1,29 @@
+# --- secrets & local env ---
+.env*
+!.env.example
+.vercel
+.claude/settings.local.json
+
+# --- dependencies ---
+node_modules/
+
+# --- build output ---
+.next/
+dist/
+build/
+
+# --- Solidity / Foundry ---
+liquidflow-backend/contracts/out/
+liquidflow-backend/contracts/cache/
+liquidflow-backend/contracts/lib/
+
+# --- Rust / Anchor / Solana ---
+target/
+**/target/
+.anchor/
+test-ledger/
+
+# --- OS / editor noise ---
+.DS_Store
+Thumbs.db
+*.log

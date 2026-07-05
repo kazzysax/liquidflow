@@ -1,0 +1,16 @@
+{
+  "name": "liquidflow",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0",
+    "@scure/base": "^1.2.6",
+    "@upstash/redis": "^1.38.0",
+    "ethers": "^6.17.0",
+    "solc": "^0.8.28"
+  }
+}
