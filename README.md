@@ -18,7 +18,8 @@ Every build step must preserve this.
 
 | Path | What |
 |------|------|
-| `api/` | **Live serverless API (Vercel).** Payments, merchants, fundraisers, payroll, the deposit-watcher cron, and the stealth recovery endpoint. |
+| `api/` | **Live serverless API (Vercel).** Payments, merchants, fundraisers, payroll, the deposit-watcher cron, the stealth recovery endpoint, and Arc cross-chain swaps (CCTP). |
+| `api/swap/` | **Cross-chain USDC via Circle CCTP** — move USDC in/out of Arc. `POST /api/swap/quote` (returns the approve+burn txs to sign — non-custodial), `GET /api/swap/status` (attestation), `POST /api/swap/relay-mint` (optional LF-relayed mint). |
 | `api/_lib/` | Core libs: chain reads + confirmation, stealth crypto, KV store, webhooks, payroll keeper. |
 | `tools/` | Operator/merchant tooling — e.g. the offline EVM stealth **sweep tool** (keys never leave the merchant's machine). |
 | `*.html` | Frontend (landing, gateway, onboarding wizard, potlock, receipt verify). |

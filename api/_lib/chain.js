@@ -204,4 +204,4 @@ async function checkAndConfirm(payment) {
   return payment;
 }
 
-module.exports = { RPC, CONFIRMATIONS, DECIMALS, SYMBOL, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetForChain, assetOk, rpc, ethBalance, nativeBalance, confirmedBalance, checkAndConfirm };
+module.exports = { RPC, CONFIRMATIONS, DECIMALS, SYMBOL, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetForChain, assetOk, rpc, rpcUrl, ethBalance, nativeBalance, confirmedBalance, checkAndConfirm };
