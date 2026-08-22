@@ -196,7 +196,9 @@ async function checkAndConfirm(payment) {
   // record that slipped past creation validation can't confirm against `bal >= 0`.
   if (!isValidBaseAmount(payment.amount)) return payment;
 
-  if (Date.now() >= payment.expiresAt) {
+  // `expiresAt: null` is reserved for intentionally non-expiring fundraiser
+  // donations. Merchant checkout payments always carry a finite timestamp.
+  if (payment.expiresAt != null && Date.now() >= payment.expiresAt) {
     payment.status = 'expired';
     await store.set(`payment:${payment.id}`, payment);
     await store.srem('payments:pending', payment.id);
