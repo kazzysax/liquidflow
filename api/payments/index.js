@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const store  = require('../_lib/store');
 const { deriveDepositAddress } = require('../_lib/crypto');
 const ed = require('../_lib/stealth_ed25519');
-const { checkAndConfirm, decimals, symbol, toHuman, assetForChain, assetOk, isValidBaseAmount, confirmedBalance, chainSupported, chainDisabledReason } = require('../_lib/chain');
+const { checkAndConfirm, assetConfig, assetsForChain, assetOk, isValidBaseAmount, confirmedBalance, chainSupported, chainDisabledReason } = require('../_lib/chain');
 
 // Derive a stealth deposit address for the given chain from a recipient's meta-keys.
 function deriveForChain(chain, ent, paymentId) {
@@ -25,6 +25,7 @@ function apiKey(req) {
 }
 
 function publicView(p) {
+  const cfg = assetConfig(p.chain, p.asset);
   return {
     payment_id:      p.id,
     checkout_url:    `/pay.html?id=${p.id}`,
@@ -32,8 +33,9 @@ function publicView(p) {
     amount:          p.amount,
     asset:           p.asset,
     chain:           p.chain,
-    decimals:        decimals(p.chain),
-    symbol:          symbol(p.chain),
+    decimals:        cfg ? cfg.decimals : null,
+    symbol:          cfg ? cfg.symbol : p.asset,
+    token_contract:  cfg ? cfg.contract : null,
     status:          p.status,
     label:           p.label || null,
     privacy_mode:    p.mode,
@@ -69,7 +71,10 @@ module.exports = async function handler(req, res) {
     const confirmed = items.filter(p => p.status === 'confirmed');
     const pending   = items.filter(p => p.status === 'awaiting_payment' && now < p.expiresAt);
     // Sum each confirmed payment in its own chain's native units (human-readable).
-    const volume = confirmed.reduce((s, p) => s + toHuman(p.amount, p.chain), 0);
+    const volume = confirmed.reduce((s, p) => {
+      const cfg = assetConfig(p.chain, p.asset);
+      return s + (cfg ? Number(BigInt(p.amount)) / (10 ** cfg.decimals) : 0);
+    }, 0);
 
     return res.status(200).json({
       payments: items.map(publicView),
@@ -102,10 +107,9 @@ module.exports = async function handler(req, res) {
   if (!isValidBaseAmount(amount)) {
     return res.status(400).json({ error: 'amount must be a positive integer in base units (wei/lamports/6-dp)' });
   }
-  // Each chain settles in exactly one asset (its native token; Arc = USDC). Reject
-  // any mismatch — e.g. USDC on Base — so nothing is confirmed against the wrong balance.
+  // Only issuer-verified ERC-20 contracts in the server-side mainnet allowlist qualify.
   if (!assetOk(chain, asset)) {
-    return res.status(400).json({ error: `${chain} settles in ${assetForChain(chain)}, not ${asset}` });
+    return res.status(400).json({ error: `${asset} is not supported on ${chain}`, supported: assetsForChain(chain).map(a => a.symbol) });
   }
   // Solana/Sui use ed25519 stealth derivation, which only stealth-mode merchants have keys for.
   if ((chain === 'solana' || chain === 'sui') && merchant.mode !== 'stealth') {
@@ -133,8 +137,21 @@ module.exports = async function handler(req, res) {
     // Read at the same confirmation depth the watcher uses so baseline and confirm
     // reads are consistent. Fail the request if we can't read it — an instant payment
     // with no baseline is unconfirmable, so we never create one (fail closed).
+    // A static payout address cannot distinguish two overlapping invoices for the
+    // same token. Fail closed instead of allowing one transfer to satisfy both.
+    const existingIds = await store.smembers(`merchant:${key}:payments`);
+    for (const existingId of existingIds) {
+      const existing = await store.get(`payment:${existingId}`);
+      const existingCfg = existing && assetConfig(existing.chain, existing.asset);
+      const requestedCfg = assetConfig(chain, asset);
+      if (existing && existing.status === 'awaiting_payment' && existing.chain === chain &&
+          existingCfg && requestedCfg && existingCfg.contract.toLowerCase() === requestedCfg.contract.toLowerCase() &&
+          Date.now() < existing.expiresAt) {
+        return res.status(409).json({ error: 'an unpaid invoice already exists for this asset and network; use stealth mode for concurrent invoices' });
+      }
+    }
     try {
-      baselineBalance = (await confirmedBalance(chain, depositAddress)).toString();
+      baselineBalance = (await confirmedBalance(chain, depositAddress, asset)).toString();
     } catch (e) {
       return res.status(503).json({ error: 'could not read chain state to baseline this payment; please retry' });
     }
@@ -145,7 +162,7 @@ module.exports = async function handler(req, res) {
     merchantId: merchant.id,
     apiKey: key,
     amount: String(amount),
-    asset,
+    asset: assetConfig(chain, asset).symbol,
     chain,
     label: label || '',
     depositAddress,

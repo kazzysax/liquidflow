@@ -8,6 +8,7 @@ const ed = require('../_lib/stealth_ed25519');
 const platform = require('../_lib/platform');
 const { isPublicHttpUrl } = require('../_lib/webhook');
 const { chainSupported } = require('../_lib/chain');
+const MAINNET_CHAINS = new Set(['eip155:1', 'eip155:137', 'eip155:8453']);
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -92,6 +93,12 @@ module.exports = async function handler(req, res) {
   if (!isPublicHttpUrl(webhook)) {
     return res.status(400).json({ error: 'webhook URL must be a public address (no localhost/private/link-local hosts)' });
   }
+  if (!Array.isArray(chains) || chains.some(c => !MAINNET_CHAINS.has(c))) {
+    return res.status(400).json({ error: 'chains may contain only Ethereum, Polygon PoS and Base mainnet identifiers' });
+  }
+  if (!['USDC', 'VERSE', 'FXVERSE'].includes(String(settle || '').toUpperCase())) {
+    return res.status(400).json({ error: 'settle must be USDC, VERSE or fxVERSE' });
+  }
   // Instant (non-stealth) mode sends funds straight to `payout`, so it must be a real
   // EVM address. Stealth mode derives per-payment addresses and needs no payout here.
   if (mode !== 'stealth' && !/^0x[0-9a-fA-F]{40}$/.test(String(payout))) {
@@ -121,7 +128,7 @@ module.exports = async function handler(req, res) {
 
   let spendKey = null, spendKeyEd = null;
   if (mode === 'stealth') {
-    const kp = generateKeypair();              // secp256k1 — Base / Arc (EVM)
+    const kp = generateKeypair();              // secp256k1 — supported EVM mainnets
     merchant.P_spend = kp.P_spend;
     merchant.P_view  = kp.P_view;
     merchant.k_view  = kp.k_view;
@@ -134,7 +141,7 @@ module.exports = async function handler(req, res) {
   }
 
   // Onboarding invoice: the merchant must pay the fee — through our own payment system —
-  // before the gateway activates. A fresh stealth address on Arc (USDC) is derived per signup.
+  // before the gateway activates. A fresh Polygon address receives canonical USDC.
   const onboardingId = 'pay_' + crypto.randomBytes(8).toString('hex');
   const inv = await platform.createOnboardingInvoice(onboardingId);
   const onboardingPayment = {
@@ -174,15 +181,15 @@ module.exports = async function handler(req, res) {
       chain:           inv.chain,
       decimals:        inv.decimals,
       expires_at:      onboardingPayment.expiresAt,
-      note:            `Pay ${platform.FEE_USDC} ${inv.asset} on Arc to this address to activate your gateway. Confirmation is automatic (on-chain watcher).`,
+      note:            `Pay ${platform.FEE_USDC} ${inv.asset} on Polygon PoS to this address to activate your gateway. Confirmation is automatic (on-chain watcher).`,
     },
   };
   if (spendKey) {
-    resp.spend_key          = spendKey;     // EVM (Base/Arc)
+    resp.spend_key          = spendKey;     // Ethereum / Polygon / Base
     resp.spend_key_ed25519  = spendKeyEd;   // Solana/Sui (kept for when they're enabled)
     resp.spend_key_note = chainSupported('solana')
-      ? 'Save both keys now — never shown again. spend_key sweeps Base/Arc deposits; spend_key_ed25519 sweeps Solana/Sui.'
-      : 'Save both keys now — never shown again. spend_key sweeps Base/Arc deposits. Solana/Sui are disabled pending the stealth-cryptography audit; keep spend_key_ed25519 for when they are enabled.';
+      ? 'Save both keys now — never shown again. spend_key controls supported EVM deposits.'
+      : 'Save both keys now — never shown again. spend_key controls Ethereum, Polygon and Base deposits.';
   }
 
   return res.status(201).json(resp);

@@ -9,7 +9,7 @@
 // (payment_id, R, deposit_address, chain, amount) tuples the offline sweep tool needs.
 // It never returns any private key — k_spend lives only on the merchant's machine.
 const store = require('../_lib/store');
-const { symbol, decimals } = require('../_lib/chain');
+const { assetConfig } = require('../_lib/chain');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -46,8 +46,8 @@ module.exports = async function handler(req, res) {
       R:               p.R,
       deposit_address: p.depositAddress,
       amount:          p.amount,
-      symbol:          symbol(p.chain),
-      decimals:        decimals(p.chain),
+      symbol:          (assetConfig(p.chain, p.asset) || {}).symbol || p.asset,
+      decimals:        (assetConfig(p.chain, p.asset) || {}).decimals ?? null,
       confirmed_at:    p.confirmedAt || null,
     });
   }

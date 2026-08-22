@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const store  = require('../_lib/store');
 const { generateKeypair } = require('../_lib/crypto');
 const ed = require('../_lib/stealth_ed25519');
-const { decimals, symbol, assetForChain, assetOk, chainSupported, chainDisabledReason } = require('../_lib/chain');
+const { assetConfig, assetsForChain, assetOk, chainSupported, chainDisabledReason } = require('../_lib/chain');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -30,7 +30,9 @@ async function totals(id) {
 }
 
 function publicView(f, t) {
-  const raised = Number(t.raisedWei) / Math.pow(10, decimals(f.chain));
+  const cfg = assetConfig(f.chain, f.asset);
+  const dp = cfg ? cfg.decimals : 18;
+  const raised = Number(t.raisedWei) / Math.pow(10, dp);
   return {
     id:            f.id,
     slug:          f.slug,
@@ -39,8 +41,9 @@ function publicView(f, t) {
     goal:          f.goal,                 // in the chain's native units
     asset:         f.asset,
     chain:         f.chain,
-    decimals:      decimals(f.chain),
-    symbol:        symbol(f.chain),
+    decimals:      dp,
+    symbol:        cfg ? cfg.symbol : f.asset,
+    token_contract: cfg ? cfg.contract : null,
     raised:        Number(raised.toFixed(6)),
     raised_base:   String(t.raisedWei),
     donation_count: t.count,
@@ -66,18 +69,17 @@ module.exports = async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
-  const { title, description = '', goal, asset, chain = 'eip155:84532' } = req.body || {};
+  const { title, description = '', goal, asset = 'VERSE', chain = 'eip155:1' } = req.body || {};
   if (!title || !goal) return res.status(400).json({ error: 'title and goal are required' });
   const goalNum = Number(goal);
   if (!Number.isFinite(goalNum) || goalNum <= 0) {
     return res.status(400).json({ error: 'goal must be a positive number' });
   }
   if (!chainSupported(chain)) return res.status(400).json({ error: chainDisabledReason(chain) });
-  // Each chain raises in exactly one asset (native token; Arc = USDC). Default to it,
-  // and reject any explicit mismatch.
-  const useAsset = asset || symbol(chain);
+  // Only issuer-verified ERC-20 contracts in the server-side mainnet allowlist qualify.
+  const useAsset = asset;
   if (!assetOk(chain, useAsset)) {
-    return res.status(400).json({ error: `${chain} settles in ${assetForChain(chain)}, not ${useAsset}` });
+    return res.status(400).json({ error: `${useAsset} is not supported on ${chain}`, supported: assetsForChain(chain).map(a => a.symbol) });
   }
 
   const id = 'fr_' + crypto.randomBytes(6).toString('hex');
@@ -90,7 +92,7 @@ module.exports = async function handler(req, res) {
     title,
     description,
     goal: goalNum,
-    asset: useAsset,
+    asset: assetConfig(chain, useAsset).symbol,
     chain,
     mode: 'stealth',
     P_spend: kp.P_spend, P_view: kp.P_view, k_view: kp.k_view,

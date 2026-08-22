@@ -4,7 +4,7 @@
 // merchant's API key, webhook secret, or stealth ephemeral key (R).
 // Runs an on-demand on-chain check so a real deposit flips to confirmed within seconds.
 const store = require('../_lib/store');
-const { checkAndConfirm, decimals, symbol } = require('../_lib/chain');
+const { checkAndConfirm, assetConfig } = require('../_lib/chain');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -24,6 +24,7 @@ module.exports = async function handler(req, res) {
   if (payment.onboarding) return res.status(404).json({ error: 'not found' });
 
   await checkAndConfirm(payment); // confirm now if the deposit has landed
+  const cfg = assetConfig(payment.chain, payment.asset);
 
   let merchantName = 'Merchant';
   if (payment.apiKey) {
@@ -38,8 +39,9 @@ module.exports = async function handler(req, res) {
     amount:          payment.amount,
     asset:           payment.asset,
     chain:           payment.chain,
-    decimals:        decimals(payment.chain),
-    symbol:          symbol(payment.chain),
+    decimals:        cfg ? cfg.decimals : null,
+    symbol:          cfg ? cfg.symbol : payment.asset,
+    token_contract:  cfg ? cfg.contract : null,
     deposit_address: payment.depositAddress,
     status:          payment.status,
     created_at:      payment.createdAt,

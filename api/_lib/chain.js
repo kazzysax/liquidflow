@@ -11,6 +11,7 @@ const { confirmPayment } = require('./confirm');
 const RPC_ENV = {
   'eip155:84532':    process.env.BASE_SEPOLIA_RPC,
   'eip155:8453':     process.env.BASE_MAINNET_RPC,
+  'eip155:137':      process.env.POLYGON_MAINNET_RPC,
   'eip155:5042002':  process.env.ARC_TESTNET_RPC,       // Circle Arc testnet (native gas: USDC, 6 dp)
   'eip155:11155111': process.env.ETHEREUM_SEPOLIA_RPC,
   'eip155:1':        process.env.ETHEREUM_MAINNET_RPC,
@@ -25,7 +26,7 @@ const RPC_FALLBACK = {
   'sui':             'https://fullnode.testnet.sui.io',
 };
 // Chains that move real money — no public fallback allowed.
-const MAINNET_CHAINS = new Set(['eip155:1', 'eip155:8453']);
+const MAINNET_CHAINS = new Set(['eip155:1', 'eip155:137', 'eip155:8453']);
 function rpcUrl(chain) {
   const env = RPC_ENV[chain];
   if (env) return env;
@@ -43,7 +44,7 @@ for (const c of Object.keys(RPC_ENV)) { try { RPC[c] = rpcUrl(c); } catch { RPC[
 // a shallow reorg can no longer reverse an already-"confirmed" payment. Mainnet
 // values are deliberately higher than testnet.
 const CONFIRMATIONS = {
-  'eip155:84532': 3, 'eip155:8453': 30, 'eip155:5042002': 3, 'eip155:11155111': 3, 'eip155:1': 24,
+  'eip155:84532': 3, 'eip155:8453': 30, 'eip155:137': 128, 'eip155:5042002': 3, 'eip155:11155111': 3, 'eip155:1': 24,
   'solana': 1, 'sui': 1,
 };
 const confDepth = (c) => (CONFIRMATIONS[c] != null ? CONFIRMATIONS[c] : 3);
@@ -54,15 +55,10 @@ const confDepth = (c) => (CONFIRMATIONS[c] != null ? CONFIRMATIONS[c] : 3);
 // so mainnet cannot silently lose funds. Flip ENABLE_ED25519_STEALTH=1 only after.
 const ED25519_STEALTH_ENABLED = process.env.ENABLE_ED25519_STEALTH === '1';
 function chainSupported(chain) {
-  if (!chain) return false;
-  if (chain === 'solana' || chain === 'sui') return ED25519_STEALTH_ENABLED;
-  return String(chain).startsWith('eip155:');
+  return !!(chain && ASSETS[chain]);
 }
 function chainDisabledReason(chain) {
-  if ((chain === 'solana' || chain === 'sui') && !ED25519_STEALTH_ENABLED) {
-    return 'Solana and Sui are temporarily disabled pending the stealth-cryptography audit';
-  }
-  return `${chain} is not supported`;
+  return `${chain} is not an approved LiquidFlow mainnet`;
 }
 
 // Native-asset decimals + symbol per chain (for amount<->base-unit conversion + display).
@@ -94,13 +90,33 @@ function isValidBaseAmount(v) {
   return n > 0n && n < MAX_BASE;
 }
 
-// Asset policy (single source of truth): each chain settles in exactly ONE asset —
-// its native token. Arc's native gas token IS USDC (6 dp), so Arc settles in USDC;
-// every other chain settles in its native coin. No ERC-20/SPL tokens elsewhere yet.
-const assetForChain = (c) => SYMBOL[c] || null;
-const assetOk = (c, asset) =>
-  !!asset && !!assetForChain(c) &&
-  String(asset).toUpperCase() === assetForChain(c).toUpperCase();
+// Buildathon mainnet allowlist. Contract addresses are canonical issuer addresses;
+// callers cannot supply arbitrary token contracts. Symbols are normalized so Polygon
+// VERSE is stored as fxVERSE while still accepting "VERSE" from API clients.
+const ASSETS = Object.freeze({
+  'eip155:1': Object.freeze({
+    VERSE: Object.freeze({ symbol: 'VERSE', decimals: 18, contract: '0x249ca82617ec3dfb2589c4c17ab7ec9765350a18' }),
+    USDC:  Object.freeze({ symbol: 'USDC',  decimals: 6,  contract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' }),
+  }),
+  'eip155:137': Object.freeze({
+    VERSE:   Object.freeze({ symbol: 'fxVERSE', decimals: 18, contract: '0xc708D6F2153933DAA50B2D0758955Be0A93A8FEc' }),
+    FXVERSE: Object.freeze({ symbol: 'fxVERSE', decimals: 18, contract: '0xc708D6F2153933DAA50B2D0758955Be0A93A8FEc' }),
+    USDC:    Object.freeze({ symbol: 'USDC',    decimals: 6,  contract: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359' }),
+  }),
+  'eip155:8453': Object.freeze({
+    USDC: Object.freeze({ symbol: 'USDC', decimals: 6, contract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' }),
+  }),
+});
+function assetConfig(chain, asset) {
+  const key = String(asset || '').toUpperCase();
+  return (ASSETS[chain] && ASSETS[chain][key]) || null;
+}
+const assetsForChain = (chain) => {
+  const seen = new Set();
+  return Object.values(ASSETS[chain] || {}).filter(a => !seen.has(a.contract.toLowerCase()) && seen.add(a.contract.toLowerCase()));
+};
+const assetForChain = (chain) => assetsForChain(chain).map(a => a.symbol);
+const assetOk = (chain, asset) => !!assetConfig(chain, asset);
 
 async function rpc(chain, method, params = []) {
   const url = rpcUrl(chain);
@@ -128,6 +144,21 @@ async function ethBalance(chain, address, confirmations = 0) {
   return BigInt(await rpc(chain, 'eth_getBalance', [address, tag]));
 }
 
+async function tokenBalance(chain, token, address, confirmations = 0) {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(String(address || ''))) throw new Error('invalid EVM address');
+  let tag = 'latest';
+  if (confirmations > 0) {
+    const head = BigInt(await rpc(chain, 'eth_blockNumber', []));
+    const target = head > BigInt(confirmations) ? head - BigInt(confirmations) : 0n;
+    tag = '0x' + target.toString(16);
+  }
+  // balanceOf(address) selector + 32-byte left-padded address.
+  const data = '0x70a08231' + String(address).slice(2).toLowerCase().padStart(64, '0');
+  const result = await rpc(chain, 'eth_call', [{ to: token, data }, tag]);
+  if (!/^0x[0-9a-fA-F]{64}$/.test(String(result || ''))) throw new Error('invalid ERC-20 balance response');
+  return BigInt(result);
+}
+
 // Native-asset balance (smallest units) for any supported chain — EVM, Solana, Sui.
 // `confirmations` selects a reorg-safe view: block depth on EVM, 'finalized'
 // commitment on Solana. 0 = latest/unconfirmed.
@@ -147,8 +178,10 @@ async function nativeBalance(chain, address, confirmations = 0) {
 
 // Balance viewed at this chain's confirmation depth — the value confirmation logic
 // must use, so a payment is only ever confirmed against reorg-safe funds.
-async function confirmedBalance(chain, address) {
-  return nativeBalance(chain, address, confDepth(chain));
+async function confirmedBalance(chain, address, asset) {
+  const cfg = assetConfig(chain, asset);
+  if (!cfg) throw new Error(`unsupported asset ${asset} on ${chain}`);
+  return tokenBalance(chain, cfg.contract, address, confDepth(chain));
 }
 
 // Check one payment on-chain; confirm it if funded, expire it if past its window.
@@ -170,7 +203,7 @@ async function checkAndConfirm(payment) {
   try {
     // Read at the chain's confirmation depth — funds must be buried N blocks/final
     // before they count, so a shallow reorg cannot reverse a confirmed payment.
-    const bal  = await confirmedBalance(payment.chain, payment.depositAddress);
+    const bal  = await confirmedBalance(payment.chain, payment.depositAddress, payment.asset);
     const need = BigInt(payment.amount);
 
     // Stealth mode derives a FRESH single-use address per payment, so the address
@@ -204,4 +237,4 @@ async function checkAndConfirm(payment) {
   return payment;
 }
 
-module.exports = { RPC, CONFIRMATIONS, DECIMALS, SYMBOL, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetForChain, assetOk, rpc, rpcUrl, ethBalance, nativeBalance, confirmedBalance, checkAndConfirm };
+module.exports = { RPC, CONFIRMATIONS, ASSETS, DECIMALS, SYMBOL, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetConfig, assetsForChain, assetForChain, assetOk, rpc, rpcUrl, ethBalance, tokenBalance, nativeBalance, confirmedBalance, checkAndConfirm };

@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const store  = require('../_lib/store');
 const { deriveDepositAddress } = require('../_lib/crypto');
 const ed = require('../_lib/stealth_ed25519');
-const { checkAndConfirm, decimals, symbol, isValidBaseAmount } = require('../_lib/chain');
+const { checkAndConfirm, assetConfig, isValidBaseAmount } = require('../_lib/chain');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -29,7 +29,8 @@ async function totals(id) {
     if (p && p.status === 'confirmed') {
       raisedWei += BigInt(p.amount || '0');
       count++;
-      recent.push({ amount: Number(p.amount) / Math.pow(10, decimals(p.chain)), at: p.confirmedAt });
+      const cfg = assetConfig(p.chain, p.asset);
+      recent.push({ amount: Number(p.amount) / Math.pow(10, cfg ? cfg.decimals : 18), at: p.confirmedAt });
     }
   }
   recent.sort((a, b) => (b.at || 0) - (a.at || 0));
@@ -47,11 +48,14 @@ module.exports = async function handler(req, res) {
   // ---- DETAILS ----
   if (req.method === 'GET') {
     const t = await totals(id);
-    const raised = Number(t.raisedWei) / Math.pow(10, decimals(f.chain));
+    const cfg = assetConfig(f.chain, f.asset);
+    const dp = cfg ? cfg.decimals : 18;
+    const raised = Number(t.raisedWei) / Math.pow(10, dp);
     return res.status(200).json({
       id: f.id, slug: f.slug, title: f.title, description: f.description,
       goal: f.goal, asset: f.asset, chain: f.chain,
-      decimals: decimals(f.chain), symbol: symbol(f.chain),
+      decimals: dp, symbol: cfg ? cfg.symbol : f.asset,
+      token_contract: cfg ? cfg.contract : null,
       raised: Number(raised.toFixed(6)),
       raised_base: String(t.raisedWei),
       donation_count: t.count,

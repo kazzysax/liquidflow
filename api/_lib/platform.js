@@ -1,7 +1,7 @@
 // Liquid Flow "merchant zero" — collects the onboarding fee so new gateways must pay
 // (through our own payment system) before their API key becomes usable.
 //
-// Fee: 5 USDC on Arc (Arc's native token is USDC, 6 dp) for one month.
+// Fee: 5 canonical USDC on Polygon PoS mainnet for one month.
 // Each signup gets a fresh stealth deposit address derived from the platform meta-keys,
 // so the watcher confirms it exactly like any other payment. Funds are controlled by the
 // platform spend key and swept to PLATFORM_WALLET.
@@ -12,7 +12,7 @@
 const store = require('./store');
 const { generateKeypair, deriveDepositAddress } = require('./crypto');
 
-const FEE_CHAIN    = 'eip155:5042002'; // Arc
+const FEE_CHAIN    = 'eip155:137'; // Polygon PoS mainnet
 const FEE_ASSET    = 'USDC';
 const FEE_DECIMALS = 6;
 const FEE_USDC     = Number(process.env.ONBOARD_FEE_USDC || '5');
