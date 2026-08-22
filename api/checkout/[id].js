@@ -25,6 +25,7 @@ module.exports = async function handler(req, res) {
 
   await checkAndConfirm(payment); // confirm now if the deposit has landed
   const cfg = assetConfig(payment.chain, payment.asset);
+  const remainingMs = Math.max(0, Number(payment.expiresAt || 0) - Date.now());
 
   let merchantName = 'Merchant';
   if (payment.apiKey) {
@@ -47,5 +48,6 @@ module.exports = async function handler(req, res) {
     created_at:      payment.createdAt,
     confirmed_at:    payment.confirmedAt || null,
     expires_at:      payment.expiresAt,
+    remaining_seconds: Math.ceil(remainingMs / 1000),
   });
 };

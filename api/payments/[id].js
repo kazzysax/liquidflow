@@ -53,6 +53,7 @@ module.exports = async function handler(req, res) {
   }
 
   await checkAndConfirm(payment); // confirm now if the deposit has landed
+  const remainingMs = Math.max(0, Number(payment.expiresAt || 0) - Date.now());
 
   return res.status(200).json({
     payment_id:      payment.id,
@@ -63,5 +64,6 @@ module.exports = async function handler(req, res) {
     chain:           payment.chain,
     confirmed_at:    payment.confirmedAt || null,
     expires_at:      payment.expiresAt,
+    remaining_seconds: Math.ceil(remainingMs / 1000),
   });
 };

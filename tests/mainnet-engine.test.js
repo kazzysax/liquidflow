@@ -4,6 +4,10 @@ const { ethers } = require('ethers');
 const chain = require('../api/_lib/chain');
 const cctp = require('../api/_lib/cctp');
 
+test('customer checkout expiration is exactly ten minutes', () => {
+  assert.equal(chain.CHECKOUT_TTL_MS, 10 * 60 * 1000);
+});
+
 test('asset allowlist is limited to the agreed mainnet matrix', () => {
   assert.equal(chain.assetConfig('eip155:1', 'VERSE').decimals, 18);
   assert.equal(chain.assetConfig('eip155:1', 'USDC').decimals, 6);

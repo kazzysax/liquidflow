@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const store  = require('../_lib/store');
 const { deriveDepositAddress } = require('../_lib/crypto');
 const ed = require('../_lib/stealth_ed25519');
-const { checkAndConfirm, assetConfig, assetsForChain, assetOk, isValidBaseAmount, confirmedBalance, chainSupported, chainDisabledReason } = require('../_lib/chain');
+const { CHECKOUT_TTL_MS, checkAndConfirm, assetConfig, assetsForChain, assetOk, isValidBaseAmount, confirmedBalance, chainSupported, chainDisabledReason } = require('../_lib/chain');
 
 // Derive a stealth deposit address for the given chain from a recipient's meta-keys.
 function deriveForChain(chain, ent, paymentId) {
@@ -26,6 +26,7 @@ function apiKey(req) {
 
 function publicView(p) {
   const cfg = assetConfig(p.chain, p.asset);
+  const remainingMs = Math.max(0, Number(p.expiresAt || 0) - Date.now());
   return {
     payment_id:      p.id,
     checkout_url:    `/pay.html?id=${p.id}`,
@@ -42,6 +43,7 @@ function publicView(p) {
     created_at:      p.createdAt,
     confirmed_at:    p.confirmedAt || null,
     expires_at:      p.expiresAt,
+    remaining_seconds: Math.ceil(remainingMs / 1000),
   };
 }
 
@@ -117,7 +119,7 @@ module.exports = async function handler(req, res) {
   }
 
   const paymentId = 'pay_' + crypto.randomBytes(8).toString('hex');
-  const expiresAt = Date.now() + 30 * 60 * 1000; // 30 min window
+  const expiresAt = Date.now() + CHECKOUT_TTL_MS;
 
   let depositAddress, R = null, baselineBalance = null;
   if (merchant.mode === 'stealth') {

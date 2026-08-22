@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const store  = require('../_lib/store');
 const { deriveDepositAddress } = require('../_lib/crypto');
 const ed = require('../_lib/stealth_ed25519');
-const { checkAndConfirm, assetConfig, isValidBaseAmount } = require('../_lib/chain');
+const { CHECKOUT_TTL_MS, checkAndConfirm, assetConfig, isValidBaseAmount } = require('../_lib/chain');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -95,7 +95,7 @@ module.exports = async function handler(req, res) {
     mode: 'stealth',
     status: 'awaiting_payment',
     createdAt: Date.now(),
-    expiresAt: Date.now() + 60 * 60 * 1000, // 1h window
+    expiresAt: Date.now() + CHECKOUT_TTL_MS,
   };
 
   await store.set(`payment:${paymentId}`, payment);
@@ -110,5 +110,6 @@ module.exports = async function handler(req, res) {
     chain: f.chain,
     status: 'awaiting_payment',
     expires_at: payment.expiresAt,
+    remaining_seconds: Math.ceil(CHECKOUT_TTL_MS / 1000),
   });
 };

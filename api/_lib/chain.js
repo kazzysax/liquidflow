@@ -4,6 +4,9 @@
 const store = require('./store');
 const { confirmPayment } = require('./confirm');
 
+// One authoritative customer-payment window shared by checkout and donations.
+const CHECKOUT_TTL_MS = 10 * 60 * 1000;
+
 // RPC resolution. Real-money (mainnet) chains MUST be given an explicit RPC via env:
 // we refuse to settle real funds against a shared, rate-limited public endpoint that
 // can throttle us or serve a stale/manipulated balance right at confirmation time.
@@ -193,7 +196,7 @@ async function checkAndConfirm(payment) {
   // record that slipped past creation validation can't confirm against `bal >= 0`.
   if (!isValidBaseAmount(payment.amount)) return payment;
 
-  if (Date.now() > payment.expiresAt) {
+  if (Date.now() >= payment.expiresAt) {
     payment.status = 'expired';
     await store.set(`payment:${payment.id}`, payment);
     await store.srem('payments:pending', payment.id);
@@ -237,4 +240,4 @@ async function checkAndConfirm(payment) {
   return payment;
 }
 
-module.exports = { RPC, CONFIRMATIONS, ASSETS, DECIMALS, SYMBOL, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetConfig, assetsForChain, assetForChain, assetOk, rpc, rpcUrl, ethBalance, tokenBalance, nativeBalance, confirmedBalance, checkAndConfirm };
+module.exports = { CHECKOUT_TTL_MS, RPC, CONFIRMATIONS, ASSETS, DECIMALS, SYMBOL, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetConfig, assetsForChain, assetForChain, assetOk, rpc, rpcUrl, ethBalance, tokenBalance, nativeBalance, confirmedBalance, checkAndConfirm };
