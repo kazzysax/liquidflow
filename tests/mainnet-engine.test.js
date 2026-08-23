@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { ethers } = require('ethers');
 const chain = require('../api/_lib/chain');
 const cctp = require('../api/_lib/cctp');
+const stealth = require('../api/_lib/crypto');
 
 test('customer checkout expiration is exactly ten minutes', () => {
   assert.equal(chain.CHECKOUT_TTL_MS, 10 * 60 * 1000);
@@ -52,4 +53,25 @@ test('CCTP attestation lookup rejects domains outside the mainnet allowlist', as
     cctp.getAttestation(26, '0x' + '11'.repeat(32)),
     /unsupported source CCTP domain/
   );
+});
+
+test('production stealth derivation recognizes and controls the generated EVM address', () => {
+  const merchant = stealth.generateKeypair();
+  const paymentId = 'pay_audit_vector_001';
+  const payment = stealth.deriveDepositAddress(merchant.P_spend, merchant.P_view, paymentId);
+  assert.equal(
+    stealth.recognizeDeposit(merchant.P_spend, merchant.k_view, payment.R, paymentId).toLowerCase(),
+    payment.depositAddress.toLowerCase()
+  );
+  const oneTimeKey = stealth.deriveStealthPrivKey(merchant.k_spend, merchant.k_view, payment.R, paymentId);
+  assert.equal(new ethers.Wallet('0x' + oneTimeKey).address.toLowerCase(), payment.depositAddress.toLowerCase());
+});
+
+test('production stealth derivation rejects malformed secrets and contexts', () => {
+  const merchant = stealth.generateKeypair();
+  const payment = stealth.deriveDepositAddress(merchant.P_spend, merchant.P_view, 'pay_valid');
+  assert.throws(() => stealth.deriveStealthPrivKey('00'.repeat(32), merchant.k_view, payment.R, 'pay_valid'), /scalar range/);
+  assert.throws(() => stealth.deriveStealthPrivKey(merchant.k_spend, 'abcd', payment.R, 'pay_valid'), /32 bytes/);
+  assert.throws(() => stealth.deriveDepositAddress(merchant.P_spend, merchant.P_view, ''), /between 1 and 256/);
+  assert.throws(() => stealth.recognizeDeposit(merchant.P_spend, merchant.k_view, '00'.repeat(64), 'pay_valid'), /curve point/);
 });

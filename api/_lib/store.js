@@ -44,6 +44,21 @@ async function set(key, value) {
   mem.set(key, value);
 }
 
+// Atomic short-lived lock used for state transitions that may race across Vercel
+// instances. Returns true only to the caller that acquired the key.
+async function setIfAbsent(key, value, ttlSeconds = 30) {
+  const c = await client();
+  if (c) {
+    const result = await c.set(key, value, { nx: true, ex: ttlSeconds });
+    return result === 'OK';
+  }
+  if (mem.has(key)) return false;
+  mem.set(key, value);
+  const timer = setTimeout(() => mem.delete(key), ttlSeconds * 1000);
+  if (typeof timer.unref === 'function') timer.unref();
+  return true;
+}
+
 async function del(key) {
   const c = await client();
   if (c) return c.del(key);
@@ -69,4 +84,4 @@ async function smembers(key) {
   return c ? c.smembers(key) : (mem.get(key) || []);
 }
 
-module.exports = { get, set, del, sadd, srem, smembers };
+module.exports = { get, set, setIfAbsent, del, sadd, srem, smembers };

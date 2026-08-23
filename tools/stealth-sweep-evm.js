@@ -34,6 +34,7 @@ const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
 const { deriveStealthPrivKey } = require(path.join(__dirname, '..', 'api', '_lib', 'crypto'));
+const { assetConfig } = require(path.join(__dirname, '..', 'api', '_lib', 'chain'));
 
 function arg(name, def = undefined) {
   const i = process.argv.indexOf(`--${name}`);
@@ -88,6 +89,44 @@ async function sweepOne(provider, e) {
   // Verify the reconstructed key controls the address the server told us funded.
   if (e.deposit_address && addr.toLowerCase() !== String(e.deposit_address).toLowerCase()) {
     console.log(`- ${e.payment_id}: ABORT (derived ${addr} != deposit ${e.deposit_address}; wrong keys or wrong R)`);
+    return;
+  }
+
+  // Mainnet VERSE/USDC sweep. Never trust a token address supplied by a recovery
+  // file: recompute the canonical contract from LiquidFlow's hardcoded allowlist.
+  const cfg = assetConfig(e.chain, e.asset || e.symbol);
+  if (e.token_contract || cfg) {
+    if (!cfg || !e.token_contract || cfg.contract.toLowerCase() !== String(e.token_contract).toLowerCase()) {
+      console.log(`- ${e.payment_id}: ABORT (token contract is not canonical for ${e.chain})`);
+      return;
+    }
+    const token = new ethers.Contract(cfg.contract, [
+      'function balanceOf(address) view returns (uint256)',
+      'function transfer(address,uint256) returns (bool)',
+    ], wallet);
+    const tokenBalance = await token.balanceOf(addr);
+    if (tokenBalance === 0n) { console.log(`- ${e.payment_id}: ${cfg.symbol} balance 0 — nothing to sweep`); return; }
+
+    const txBase = await token.transfer.populateTransaction(TO, tokenBalance);
+    const gasLimit = await provider.estimateGas({ ...txBase, from: addr });
+    const fee = await provider.getFeeData();
+    const gasPrice = fee.maxFeePerGas ?? fee.gasPrice;
+    if (!gasPrice) { console.log(`- ${e.payment_id}: SKIP (no gas price from RPC)`); return; }
+    const gasNeeded = gasLimit * gasPrice;
+    const nativeBalance = await provider.getBalance(addr);
+    if (nativeBalance < gasNeeded) {
+      console.log(`- ${e.payment_id}: NEED GAS ${gasNeeded - nativeBalance} native base units at ${addr} before sweeping ${ethers.formatUnits(tokenBalance, cfg.decimals)} ${cfg.symbol}`);
+      return;
+    }
+    const plan = `${ethers.formatUnits(tokenBalance, cfg.decimals)} ${cfg.symbol} from ${addr} → ${TO}`;
+    if (!CONFIRM) { console.log(`- ${e.payment_id}: DRY RUN would sweep ${plan}; estimated gas ${gasNeeded}`); return; }
+    const txReq = fee.maxFeePerGas
+      ? { ...txBase, gasLimit, maxFeePerGas: fee.maxFeePerGas, maxPriorityFeePerGas: fee.maxPriorityFeePerGas }
+      : { ...txBase, gasLimit, gasPrice };
+    const tx = await wallet.sendTransaction(txReq);
+    console.log(`- ${e.payment_id}: SENT ${plan}  tx=${tx.hash}`);
+    await tx.wait();
+    console.log(`  confirmed ${tx.hash}`);
     return;
   }
 

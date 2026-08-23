@@ -50,6 +50,20 @@ function hexToPt(hex) {
 function hashToScalar(buf) {
   return mod(BigInt('0x' + nodeCrypto.createHash('sha256').update(buf).digest('hex')), n);
 }
+function scalarFromHex(value, name) {
+  if (typeof value !== 'string' || !/^[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error(`${name} must be exactly 32 bytes of hex`);
+  }
+  const scalar = BigInt('0x' + value);
+  if (scalar <= 0n || scalar >= n) throw new Error(`${name} is outside the secp256k1 scalar range`);
+  return scalar;
+}
+function paymentContext(value) {
+  if (typeof value !== 'string' || value.length < 1 || value.length > 256) {
+    throw new Error('paymentId must be between 1 and 256 characters');
+  }
+  return Buffer.from(value, 'utf8');
+}
 function pointToAddress(P) {
   // Real EVM address = last 20 bytes of keccak256(uncompressed pubkey X||Y, 64 bytes).
   // This MUST be keccak256 (not sha256) so the stealth private key k_spend+s actually
@@ -80,7 +94,7 @@ function deriveDepositAddress(P_spend_hex, P_view_hex, paymentId) {
   const shared = mulPt(r, P_view);
   const s = hashToScalar(Buffer.concat([
     Buffer.from(ptHex(shared), 'hex'),
-    Buffer.from(paymentId, 'utf8'),
+    paymentContext(paymentId),
   ]));
   const P_stealth = addPt(P_spend, mulPt(s, G));
   return {
@@ -92,12 +106,12 @@ function deriveDepositAddress(P_spend_hex, P_view_hex, paymentId) {
 // Recognize a deposit: LF uses the stored k_view to verify a deposit address.
 function recognizeDeposit(P_spend_hex, k_view_hex, R_hex, paymentId) {
   const P_spend = hexToPt(P_spend_hex);
-  const k_view  = BigInt('0x' + k_view_hex);
+  const k_view  = scalarFromHex(k_view_hex, 'k_view');
   const R       = hexToPt(R_hex);
   const shared  = mulPt(k_view, R);
   const s = hashToScalar(Buffer.concat([
     Buffer.from(ptHex(shared), 'hex'),
-    Buffer.from(paymentId, 'utf8'),
+    paymentContext(paymentId),
   ]));
   const P_stealth = addPt(P_spend, mulPt(s, G));
   return pointToAddress(P_stealth);
@@ -112,13 +126,13 @@ function recognizeDeposit(P_spend_hex, k_view_hex, R_hex, paymentId) {
 // logged, never transmitted. Liquid Flow does not hold k_spend, so the server
 // cannot call this; that is the non-custodial guarantee.
 function deriveStealthPrivKey(k_spend_hex, k_view_hex, R_hex, paymentId) {
-  const k_spend = BigInt('0x' + k_spend_hex);
-  const k_view  = BigInt('0x' + k_view_hex);
+  const k_spend = scalarFromHex(k_spend_hex, 'k_spend');
+  const k_view  = scalarFromHex(k_view_hex, 'k_view');
   const R       = hexToPt(R_hex);
   const shared  = mulPt(k_view, R);
   const s = hashToScalar(Buffer.concat([
     Buffer.from(ptHex(shared), 'hex'),
-    Buffer.from(paymentId, 'utf8'),
+    paymentContext(paymentId),
   ]));
   const priv = mod(k_spend + s, n);
   if (priv === 0n) throw new Error('degenerate stealth key');

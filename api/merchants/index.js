@@ -4,7 +4,6 @@
 const crypto = require('crypto');
 const store  = require('../_lib/store');
 const { generateKeypair } = require('../_lib/crypto');
-const ed = require('../_lib/stealth_ed25519');
 const platform = require('../_lib/platform');
 const { isPublicHttpUrl } = require('../_lib/webhook');
 const { chainSupported } = require('../_lib/chain');
@@ -96,6 +95,12 @@ module.exports = async function handler(req, res) {
   if (!Array.isArray(chains) || chains.some(c => !MAINNET_CHAINS.has(c))) {
     return res.status(400).json({ error: 'chains may contain only Ethereum, Polygon PoS and Base mainnet identifiers' });
   }
+  if (chains.length === 0) {
+    return res.status(400).json({ error: 'select at least one supported mainnet' });
+  }
+  if (mode !== 'instant' && mode !== 'stealth') {
+    return res.status(400).json({ error: 'mode must be instant or stealth' });
+  }
   if (!['USDC', 'VERSE', 'FXVERSE'].includes(String(settle || '').toUpperCase())) {
     return res.status(400).json({ error: 'settle must be USDC, VERSE or fxVERSE' });
   }
@@ -126,18 +131,14 @@ module.exports = async function handler(req, res) {
     createdAt: Date.now(),
   };
 
-  let spendKey = null, spendKeyEd = null;
+  let spendKey = null, viewKey = null;
   if (mode === 'stealth') {
     const kp = generateKeypair();              // secp256k1 — supported EVM mainnets
     merchant.P_spend = kp.P_spend;
     merchant.P_view  = kp.P_view;
     merchant.k_view  = kp.k_view;
     spendKey = kp.k_spend;
-    const ekp = ed.generateKeypair();          // ed25519 — Solana / Sui
-    merchant.P_spend_ed = ekp.P_spend;
-    merchant.P_view_ed  = ekp.P_view;
-    merchant.k_view_ed  = ekp.k_view;
-    spendKeyEd = ekp.k_spend;
+    viewKey = kp.k_view;
   }
 
   // Onboarding invoice: the merchant must pay the fee — through our own payment system —
@@ -186,10 +187,8 @@ module.exports = async function handler(req, res) {
   };
   if (spendKey) {
     resp.spend_key          = spendKey;     // Ethereum / Polygon / Base
-    resp.spend_key_ed25519  = spendKeyEd;   // Solana/Sui (kept for when they're enabled)
-    resp.spend_key_note = chainSupported('solana')
-      ? 'Save both keys now — never shown again. spend_key controls supported EVM deposits.'
-      : 'Save both keys now — never shown again. spend_key controls Ethereum, Polygon and Base deposits.';
+    resp.view_key           = viewKey;
+    resp.spend_key_note = 'Save spend_key offline now — it is never stored by LiquidFlow and cannot be recovered. view_key is also required by the offline sweep tool and remains available through the authenticated recovery endpoint.';
   }
 
   return res.status(201).json(resp);

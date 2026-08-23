@@ -70,6 +70,7 @@ contract TokenPathsTest is Test {
         uint256 id = wallet.proposeSweepToken(address(token), merchant);
         vm.prank(ownerB);
         wallet.approve(id);
+        vm.warp(block.timestamp + 1 hours + 1); // sweeps are always timelocked
         wallet.execute(id);
         assertEq(token.balanceOf(merchant), 1000 ether);
         assertEq(token.balanceOf(address(wallet)), 0);
@@ -171,13 +172,10 @@ contract PaymentGateTokenTest is Test {
         assertTrue(settled);
     }
 
-    function test_SettleToken_AnyAmountWhenZero() public {
+    function test_OpenPayment_RejectsZeroAmount() public {
         vm.prank(operator);
-        gate.openPayment(PID, 0, uint64(block.timestamp + 1 hours)); // 0 == accept actual balance
-        token.mint(address(gate), 77 ether);
-        vm.prank(operator);
-        gate.settleToken(PID, address(token));
-        assertEq(token.balanceOf(merchant), 77 ether);
+        vm.expectRevert(PaymentGate.WrongAmount.selector);
+        gate.openPayment(PID, 0, uint64(block.timestamp + 1 hours));
     }
 
     function test_SettleToken_OnlyOperator() public {

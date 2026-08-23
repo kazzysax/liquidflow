@@ -39,6 +39,7 @@ module.exports = async function handler(req, res) {
     const p = await store.get(`payment:${id}`);
     // Only confirmed stealth payments with an ephemeral key are sweepable.
     if (!p || p.mode !== 'stealth' || p.status !== 'confirmed' || !p.R) continue;
+    const cfg = assetConfig(p.chain, p.asset);
     recoverable.push({
       payment_id:      p.id,
       chain:           p.chain,
@@ -46,8 +47,10 @@ module.exports = async function handler(req, res) {
       R:               p.R,
       deposit_address: p.depositAddress,
       amount:          p.amount,
-      symbol:          (assetConfig(p.chain, p.asset) || {}).symbol || p.asset,
-      decimals:        (assetConfig(p.chain, p.asset) || {}).decimals ?? null,
+      asset:           p.asset,
+      symbol:          cfg ? cfg.symbol : p.asset,
+      decimals:        cfg ? cfg.decimals : null,
+      token_contract:  cfg ? cfg.contract : null,
       confirmed_at:    p.confirmedAt || null,
     });
   }
@@ -55,6 +58,7 @@ module.exports = async function handler(req, res) {
 
   return res.status(200).json({
     count: recoverable.length,
+    view_key: merchant.k_view || null,
     note:  'Feed each entry, with your own k_spend + k_view, to the offline sweep tool (tools/stealth-sweep-evm.js). Your keys never leave your machine.',
     payments: recoverable,
   });

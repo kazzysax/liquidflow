@@ -4,9 +4,17 @@ const store   = require('./store');
 const webhook = require('./webhook');
 
 async function confirmPayment(payment, confirmations) {
-  // Concurrency guard: on-demand polling (listing / checkout) and the cron watcher
-  // can race to confirm the same payment. Re-read the authoritative record and bail
-  // if it is no longer awaiting — otherwise a payment.confirmed webhook fires twice.
+  // Distributed concurrency guard: on-demand polling and the cron watcher can run
+  // on different serverless instances. A re-read alone is not atomic; both callers
+  // can observe "awaiting" before either writes. Only the lock winner may transition
+  // state or emit a webhook. The short TTL permits recovery if a process dies mid-call.
+  const acquired = await store.setIfAbsent(`lock:confirm:${payment.id}`, Date.now(), 30);
+  if (!acquired) {
+    const latest = await store.get(`payment:${payment.id}`);
+    if (latest) Object.assign(payment, latest);
+    return false;
+  }
+
   const fresh = await store.get(`payment:${payment.id}`);
   if (fresh && fresh.status && fresh.status !== 'awaiting_payment') {
     Object.assign(payment, fresh);
