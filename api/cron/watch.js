@@ -3,7 +3,7 @@
 // (firing webhooks) when funded. Frontend polling also confirms on-demand via
 // _lib/chain.checkAndConfirm, so this is mainly a safety net.
 const store = require('../_lib/store');
-const { checkAndConfirm } = require('../_lib/chain');
+const { checkAndConfirm, ACTIVE_PAYMENT_STATUSES } = require('../_lib/chain');
 const { releaseDue } = require('../_lib/payroll');
 
 module.exports = async function handler(req, res) {
@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
   await Promise.allSettled(pendingIds.map(async (id) => {
     try {
       const payment = await store.get(`payment:${id}`);
-      if (!payment || payment.status !== 'awaiting_payment') {
+      if (!payment || !ACTIVE_PAYMENT_STATUSES.has(payment.status)) {
         await store.srem('payments:pending', id);
         return;
       }

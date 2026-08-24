@@ -139,7 +139,7 @@ contract TokenPathsTest is Test {
     }
 }
 
-/// PaymentGate token settle path — operator-confirmed, pays ONLY the immutable merchant.
+/// PaymentGate token settlement stays disabled until deposits are invoice-isolated.
 contract PaymentGateTokenTest is Test {
     PaymentGate gate;
     MockERC20 token;
@@ -155,62 +155,20 @@ contract PaymentGateTokenTest is Test {
         token = new MockERC20();
     }
 
-    function test_SettleToken_PaysImmutableMerchant() public {
+    function test_SettleToken_IsDisabledEvenForOperator() public {
         vm.prank(operator);
         gate.openPayment(PID, 100 ether, uint64(block.timestamp + 1 hours));
-
-        // payer sends tokens to the gate (ERC-20 cannot be rejected on receive)
         token.mint(address(gate), 100 ether);
-
         vm.prank(operator);
+        vm.expectRevert(PaymentGate.TokenSettlementDisabled.selector);
         gate.settleToken(PID, address(token));
-
-        assertEq(token.balanceOf(merchant), 100 ether, "merchant got the tokens");
-        assertEq(token.balanceOf(address(gate)), 0, "gate holds nothing");
-        (, , bool open, bool settled) = gate.getPayment(PID);
-        assertFalse(open);
-        assertTrue(settled);
+        assertEq(token.balanceOf(address(gate)), 100 ether, "disabled path moves no funds");
     }
 
     function test_OpenPayment_RejectsZeroAmount() public {
         vm.prank(operator);
         vm.expectRevert(PaymentGate.WrongAmount.selector);
         gate.openPayment(PID, 0, uint64(block.timestamp + 1 hours));
-    }
-
-    function test_SettleToken_OnlyOperator() public {
-        vm.prank(operator);
-        gate.openPayment(PID, 100 ether, uint64(block.timestamp + 1 hours));
-        token.mint(address(gate), 100 ether);
-        vm.prank(attacker);
-        vm.expectRevert(PaymentGate.NotOperator.selector);
-        gate.settleToken(PID, address(token));
-    }
-
-    function test_SettleToken_RevertsIfNoOpenPayment() public {
-        token.mint(address(gate), 100 ether);
-        vm.prank(operator);
-        vm.expectRevert(PaymentGate.PaymentNotOpen.selector);
-        gate.settleToken(PID, address(token));
-    }
-
-    function test_SettleToken_RevertsAfterExpiry() public {
-        vm.prank(operator);
-        gate.openPayment(PID, 100 ether, uint64(block.timestamp + 1 hours));
-        token.mint(address(gate), 100 ether);
-        vm.warp(block.timestamp + 2 hours);
-        vm.prank(operator);
-        vm.expectRevert(PaymentGate.PaymentExpired.selector);
-        gate.settleToken(PID, address(token));
-    }
-
-    function test_SettleToken_RevertsIfUnderpaid() public {
-        vm.prank(operator);
-        gate.openPayment(PID, 100 ether, uint64(block.timestamp + 1 hours));
-        token.mint(address(gate), 99 ether); // short
-        vm.prank(operator);
-        vm.expectRevert(PaymentGate.WrongAmount.selector);
-        gate.settleToken(PID, address(token));
     }
 
     /// Structural non-custodial guarantee: the only destination is the immutable

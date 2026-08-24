@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const store  = require('../_lib/store');
 const { deriveDepositAddress } = require('../_lib/crypto');
 const ed = require('../_lib/stealth_ed25519');
-const { checkAndConfirm, assetConfig, isValidBaseAmount } = require('../_lib/chain');
+const { checkAndConfirm, currentBlock, ACTIVE_PAYMENT_STATUSES, assetConfig, isValidBaseAmount } = require('../_lib/chain');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -22,7 +22,7 @@ async function totals(id) {
     if (p) loaded.push(p);
   }
   await Promise.allSettled(
-    loaded.filter(p => p.status === 'awaiting_payment').map(p => checkAndConfirm(p))
+    loaded.filter(p => ACTIVE_PAYMENT_STATUSES.has(p.status)).map(p => checkAndConfirm(p))
   );
   let raisedWei = 0n, count = 0, recent = [];
   for (const p of loaded) {
@@ -81,6 +81,9 @@ module.exports = async function handler(req, res) {
     f.chain === 'solana' ? ed.solanaAddress(f.P_spend_ed, f.P_view_ed)
     : f.chain === 'sui'  ? ed.suiAddress(f.P_spend_ed, f.P_view_ed)
     : deriveDepositAddress(f.P_spend, f.P_view, paymentId);
+  let startBlock;
+  try { startBlock = (await currentBlock(f.chain)).toString(); }
+  catch { return res.status(503).json({ error: 'could not anchor this donation to the chain; please retry' }); }
 
   const payment = {
     id: paymentId,
@@ -96,6 +99,7 @@ module.exports = async function handler(req, res) {
     status: 'awaiting_payment',
     createdAt: Date.now(),
     expiresAt: null, // fundraiser donation addresses intentionally do not expire
+    startBlock,
   };
 
   await store.set(`payment:${paymentId}`, payment);

@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const store  = require('../_lib/store');
 const { deriveDepositAddress } = require('../_lib/crypto');
 const ed = require('../_lib/stealth_ed25519');
-const { CHECKOUT_TTL_MS, checkAndConfirm, assetConfig, assetsForChain, assetOk, isValidBaseAmount, confirmedBalance, chainSupported, chainDisabledReason } = require('../_lib/chain');
+const { CHECKOUT_TTL_MS, ACTIVE_PAYMENT_STATUSES, checkAndConfirm, currentBlock, assetConfig, assetsForChain, assetOk, isValidBaseAmount, confirmedBalance, chainSupported, chainDisabledReason } = require('../_lib/chain');
 
 // Derive a stealth deposit address for the given chain from a recipient's meta-keys.
 function deriveForChain(chain, ent, paymentId) {
@@ -65,13 +65,13 @@ module.exports = async function handler(req, res) {
     }
     // On-demand: confirm any pending deposits that have landed on-chain.
     await Promise.allSettled(
-      items.filter(p => p.status === 'awaiting_payment').map(p => checkAndConfirm(p))
+      items.filter(p => ACTIVE_PAYMENT_STATUSES.has(p.status)).map(p => checkAndConfirm(p))
     );
     items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     const now = Date.now();
     const confirmed = items.filter(p => p.status === 'confirmed');
-    const pending   = items.filter(p => p.status === 'awaiting_payment' && now < p.expiresAt);
+    const pending   = items.filter(p => ACTIVE_PAYMENT_STATUSES.has(p.status) && now < p.expiresAt);
     // Sum each confirmed payment in its own chain's native units (human-readable).
     const volume = confirmed.reduce((s, p) => {
       const cfg = assetConfig(p.chain, p.asset);
@@ -159,6 +159,13 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  let startBlock;
+  try {
+    startBlock = (await currentBlock(chain)).toString();
+  } catch (e) {
+    return res.status(503).json({ error: 'could not anchor this invoice to the chain; please retry' });
+  }
+
   const payment = {
     id: paymentId,
     merchantId: merchant.id,
@@ -174,6 +181,7 @@ module.exports = async function handler(req, res) {
     status: 'awaiting_payment',
     createdAt: Date.now(),
     expiresAt,
+    startBlock,
   };
 
   await store.set(`payment:${paymentId}`, payment);

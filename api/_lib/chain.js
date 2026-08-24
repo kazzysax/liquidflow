@@ -135,6 +135,46 @@ async function rpc(chain, method, params = []) {
   return j.result;
 }
 
+const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const ACTIVE_PAYMENT_STATUSES = new Set(['awaiting_payment', 'awaiting_topup', 'checking_finality']);
+const FINALITY_GRACE_MS = CHECKOUT_TTL_MS;
+
+async function currentBlock(chain) {
+  if (!String(chain).startsWith('eip155:')) throw new Error('event accounting requires an EVM chain');
+  return BigInt(await rpc(chain, 'eth_blockNumber', []));
+}
+
+async function tokenTransfersTo(payment) {
+  const cfg = assetConfig(payment.chain, payment.asset);
+  if (!cfg || payment.startBlock == null) throw new Error('payment is missing token or start block');
+  const head = await currentBlock(payment.chain);
+  const safe = head > BigInt(confDepth(payment.chain)) ? head - BigInt(confDepth(payment.chain)) : 0n;
+  const from = BigInt(payment.startBlock);
+  if (safe < from) return [];
+  const recipient = '0x' + String(payment.depositAddress).slice(2).toLowerCase().padStart(64, '0');
+  const logs = await rpc(payment.chain, 'eth_getLogs', [{ address: cfg.contract,
+    fromBlock: '0x' + from.toString(16), toBlock: '0x' + safe.toString(16),
+    topics: [TRANSFER_TOPIC, null, recipient] }]);
+  if (!Array.isArray(logs) || logs.length > 100) throw new Error('unexpected transfer log count');
+  return logs.map(log => ({ id: `${log.transactionHash}:${log.logIndex}`, txHash: log.transactionHash,
+    logIndex: log.logIndex, blockNumber: BigInt(log.blockNumber).toString(),
+    from: '0x' + String(log.topics[1]).slice(-40), amount: BigInt(log.data).toString() }));
+}
+
+function classifyTransfers(payment, transfers, now = Date.now()) {
+  const need = BigInt(payment.amount);
+  const unique = [...new Map((transfers || []).map(t => [t.id, t])).values()];
+  const senders = [...new Set(unique.map(t => t.from.toLowerCase()))];
+  const received = unique.reduce((sum, t) => sum + BigInt(t.amount), 0n);
+  if (senders.length > 1) return { status: 'manual_review', received, sender: null, refund: null };
+  if (received === need) return { status: 'confirmed', received, sender: senders[0] || null, refund: null };
+  if (received > need) return { status: 'refund_pending', received, sender: senders[0], refund: received - need };
+  if (received > 0n && (payment.expiresAt == null || now < payment.expiresAt)) return { status: 'awaiting_topup', received, sender: senders[0], refund: null };
+  if (payment.expiresAt != null && now < payment.expiresAt + FINALITY_GRACE_MS) return { status: 'checking_finality', received, sender: senders[0] || null, refund: null };
+  if (received > 0n) return { status: 'refund_pending', received, sender: senders[0], refund: received };
+  return { status: payment.expiresAt == null ? 'awaiting_payment' : 'expired', received, sender: null, refund: null };
+}
+
 // EVM balance at a reorg-safe depth: read at (latest - confirmations) so only funds
 // buried that deep are counted. confirmations = 0 reads the chain tip ('latest').
 async function ethBalance(chain, address, confirmations = 0) {
@@ -190,51 +230,29 @@ async function confirmedBalance(chain, address, asset) {
 // Check one payment on-chain; confirm it if funded, expire it if past its window.
 // Returns the (possibly mutated) payment. Safe to call on any status.
 async function checkAndConfirm(payment) {
-  if (!payment || payment.status !== 'awaiting_payment') return payment;
+  if (!payment || !ACTIVE_PAYMENT_STATUSES.has(payment.status)) return payment;
 
   // A malformed/zero/negative amount must never confirm. Guard here too so a bad
   // record that slipped past creation validation can't confirm against `bal >= 0`.
   if (!isValidBaseAmount(payment.amount)) return payment;
 
-  // `expiresAt: null` is reserved for intentionally non-expiring fundraiser
-  // donations. Merchant checkout payments always carry a finite timestamp.
-  if (payment.expiresAt != null && Date.now() >= payment.expiresAt) {
-    payment.status = 'expired';
-    await store.set(`payment:${payment.id}`, payment);
-    await store.srem('payments:pending', payment.id);
-    return payment;
-  }
-
   try {
-    // Read at the chain's confirmation depth — funds must be buried N blocks/final
-    // before they count, so a shallow reorg cannot reverse a confirmed payment.
-    const bal  = await confirmedBalance(payment.chain, payment.depositAddress, payment.asset);
-    const need = BigInt(payment.amount);
-
-    // Stealth mode derives a FRESH single-use address per payment, so the address
-    // only ever holds this one payment — a raw balance check is sound.
-    //
-    // Instant mode reuses the merchant's static payout wallet as the deposit
-    // address. That wallet carries an arbitrary standing balance from other
-    // sources, so `bal >= amount` would confirm off pre-existing funds (no real
-    // payment) or let one incoming transfer satisfy several invoices. We instead
-    // require the balance to have RISEN by at least `amount` versus the baseline
-    // captured when the payment was created.
-    let funded;
-    if (payment.mode === 'stealth') {
-      funded = bal >= need;                 // fresh single-use address
-    } else {
-      // Instant mode reuses the merchant's payout wallet, so we require a baseline
-      // captured at creation and a genuine RISE of >= amount. No baseline → fail
-      // closed (leave pending); never confirm an instant payment against pre-existing
-      // funds. New instant payments always have a baseline (enforced at creation).
-      if (payment.baselineBalance == null) return payment;
-      const baseline = BigInt(payment.baselineBalance);
-      funded = bal >= baseline + need;
-    }
-
-    if (funded) {
+    const transfers = await tokenTransfersTo(payment);
+    const result = classifyTransfers(payment, transfers);
+    payment.transfers = transfers;
+    payment.receivedAmount = result.received.toString();
+    payment.payerAddress = result.sender;
+    payment.transactionHashes = [...new Set(transfers.map(t => t.txHash))];
+    if (result.status === 'confirmed') {
       await confirmPayment(payment, CONFIRMATIONS[payment.chain] || 3);
+    } else {
+      payment.status = result.status;
+      if (result.refund != null) {
+        payment.refund = { status: 'merchant_authorization_required', amount: result.refund.toString(), to: result.sender, createdAt: Date.now() };
+        await store.sadd('refunds:pending', payment.id);
+      }
+      await store.set(`payment:${payment.id}`, payment);
+      if (!ACTIVE_PAYMENT_STATUSES.has(payment.status)) await store.srem('payments:pending', payment.id);
     }
   } catch (e) {
     // unsupported chain or RPC hiccup — leave pending; next poll/cron retries
@@ -242,4 +260,4 @@ async function checkAndConfirm(payment) {
   return payment;
 }
 
-module.exports = { CHECKOUT_TTL_MS, RPC, CONFIRMATIONS, ASSETS, DECIMALS, SYMBOL, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetConfig, assetsForChain, assetForChain, assetOk, rpc, rpcUrl, ethBalance, tokenBalance, nativeBalance, confirmedBalance, checkAndConfirm };
+module.exports = { CHECKOUT_TTL_MS, RPC, CONFIRMATIONS, ASSETS, DECIMALS, SYMBOL, ACTIVE_PAYMENT_STATUSES, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetConfig, assetsForChain, assetForChain, assetOk, rpc, rpcUrl, currentBlock, ethBalance, tokenBalance, nativeBalance, confirmedBalance, tokenTransfersTo, classifyTransfers, checkAndConfirm };

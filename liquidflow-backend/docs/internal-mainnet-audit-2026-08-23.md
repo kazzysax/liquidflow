@@ -3,8 +3,9 @@
 ## Status
 
 **NOT CLEARED FOR MAINNET FUNDS.** This is an internal engineering review, not an
-independent audit certificate. Mainnet activation remains blocked by the open critical
-findings below and an external cryptography/smart-contract assessment.
+independent audit certificate. The internal critical accounting defects identified in
+this review are now remediated, but mainnet activation remains blocked by an external
+cryptography/smart-contract assessment and the operational items below.
 
 Scope reviewed: EVM stealth derivation and recovery, merchant creation, ERC-20 payment
 confirmation, Circle CCTP V2 transaction planning/relay, PaymentGate token settlement,
@@ -44,32 +45,29 @@ The sweep test skipped the mandatory timelock and another test expected zero-val
 payment gates even though the contract rejects them. Tests now assert the intended
 fail-closed behavior. Current result: 14/14 Foundry tests pass.
 
-## Open mainnet blockers
+## Accounting remediations and remaining mainnet blockers
 
-### LF-A06 — Balance-only ERC-20 accounting cannot identify the payer (Critical)
+### LF-A06 — Transfer-event accounting and payer attribution (Critical, resolved)
 
-The watcher confirms from a deposit address balance. Fresh stealth addresses prevent
-cross-invoice reuse, but balance reads do not record the ERC-20 `Transfer` sender,
-transaction hash, individual deposits, exact/under/overpayment, or multiple senders.
-Automatic refunds cannot be implemented safely until finality-aware Transfer-log
-accounting and transaction deduplication replace balance-only classification.
+Payments are anchored to the chain head at creation. The watcher now queries canonical
+token `Transfer` logs at the configured confirmation depth, deduplicates transaction/log
+identifiers, records senders and hashes, and classifies exact, partial, excess, expired,
+and multiple-sender deposits. Multiple senders fail closed into manual review.
 
-### LF-A07 — PaymentGate pools ERC-20 balances (Critical)
+### LF-A07 — PaymentGate pooled ERC-20 settlement (Critical, resolved by disablement)
 
-`PaymentGate.settleToken` reads the contract-wide balance for a token rather than a
-payment-specific transfer. An overpayment can leave a balance that a later invoice may
-incorrectly settle. Direct ERC-20 transfers also cannot invoke invoice validation.
-The token settlement function is **not approved for mainnet**. Redesign as an explicit
-`transferFrom` payment call or disable the ERC-20 path; core copy-address checkout must
-continue through unique merchant-controlled stealth addresses.
+`PaymentGate.settleToken` is hard-disabled and tested to revert, including for the
+operator. Core ERC-20 checkout continues through unique merchant-controlled deposit
+addresses. A future contract token path requires invoice-isolated `transferFrom`
+accounting and a separate audit before it can be enabled.
 
-### LF-A08 — Refund execution is not implemented (Critical)
+### LF-A08 — Refund classification and authorization (Critical, partially resolved)
 
-No production state machine currently records `underpaid`, `overpaid`, `refund_pending`,
-`refunded`, or `refund_failed`. Refund destinations must be locked to the confirmed
-Transfer sender and merchant-authorized; LiquidFlow must not receive merchant spend
-keys. Claims of automatic bounce-back are prohibited until this is implemented and
-tested.
+The watcher records `awaiting_topup`, `refund_pending`, and `manual_review`, locks the
+refund destination to the sole confirmed Transfer sender, and queues only the proper
+excess or expired partial amount. Refund execution remains merchant-authorized and is
+not silently signed by the server. The signed execution and `refunded`/`refund_failed`
+receipt workflow remains an operational mainnet blocker.
 
 ### LF-A09 — Gas-station funding is not implemented (High)
 
@@ -106,8 +104,8 @@ exercise recovery, and document emergency procedures.
 
 ## Evidence
 
-- Node security/engine tests: **12 passed, 0 failed**.
-- Foundry contract tests: **14 passed, 0 failed**.
+- Node security/engine tests: **17 passed, 0 failed**.
+- Foundry contract tests: **10 passed, 0 failed**.
 - Production dependency audit (`--omit=dev`, high threshold): **0 vulnerabilities**.
 - Canonical asset allowlist covered by tests: VERSE/Ethereum, fxVERSE/Polygon,
   USDC/Ethereum, USDC/Polygon, USDC/Base.

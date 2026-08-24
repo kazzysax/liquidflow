@@ -6,7 +6,7 @@ const store  = require('../_lib/store');
 const { generateKeypair } = require('../_lib/crypto');
 const platform = require('../_lib/platform');
 const { isPublicHttpUrl } = require('../_lib/webhook');
-const { chainSupported } = require('../_lib/chain');
+const { chainSupported, currentBlock } = require('../_lib/chain');
 const MAINNET_CHAINS = new Set(['eip155:1', 'eip155:137', 'eip155:8453']);
 
 function cors(res) {
@@ -145,6 +145,9 @@ module.exports = async function handler(req, res) {
   // before the gateway activates. A fresh Polygon address receives canonical USDC.
   const onboardingId = 'pay_' + crypto.randomBytes(8).toString('hex');
   const inv = await platform.createOnboardingInvoice(onboardingId);
+  let onboardingStartBlock;
+  try { onboardingStartBlock = (await currentBlock(inv.chain)).toString(); }
+  catch { return res.status(503).json({ error: 'could not anchor onboarding payment to the chain; please retry' }); }
   const onboardingPayment = {
     id: onboardingId,
     merchantId,
@@ -160,6 +163,7 @@ module.exports = async function handler(req, res) {
     status: 'awaiting_payment',
     createdAt: Date.now(),
     expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour to pay
+    startBlock: onboardingStartBlock,
   };
   merchant.onboardingPaymentId = onboardingId;
 

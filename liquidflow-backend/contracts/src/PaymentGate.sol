@@ -33,6 +33,7 @@ contract PaymentGate {
     error ZeroAddress();
     error TransferFailed();
     error Reentrancy();
+    error TokenSettlementDisabled();
 
     // --------------------------- Immutable config -------------------------- //
     /// The only address funds can ever reach. Set once, forever.
@@ -124,27 +125,12 @@ contract PaymentGate {
         revert GateClosed();
     }
 
-    // ------------- Token settle (accounting gate, operator-confirmed) ------ //
-    /// For ERC-20: the token cannot be rejected on receipt, so tokens may arrive
-    /// at this contract regardless. The operator confirms a matching deposit and
-    /// triggers forwarding — but ONLY ever to the immutable merchant. If no
-    /// payment matches, off-chain logic issues a refund (see spec §14.1); this
-    /// function cannot send anywhere but `merchant`, so the operator still cannot
-    /// steal. Amount is read from the token balance to avoid trusting input.
-    function settleToken(bytes32 paymentId, address token) external onlyOperator nonReentrant {
-        Payment storage p = payments[paymentId];
-        if (!p.open) revert PaymentNotOpen();
-        if (block.timestamp > p.expiry) revert PaymentExpired();
-
-        uint256 bal = _tokenBalance(token);
-        if (p.amount != 0 && bal < p.amount) revert WrongAmount();
-        uint256 amount = p.amount != 0 ? p.amount : bal;
-
-        p.open = false;
-        p.settled = true;
-
-        _sendToken(token, merchant, amount);
-        emit TokenSettled(paymentId, token, amount, merchant);
+    // ERC-20 settlement is intentionally disabled. A shared contract balance cannot
+    // prove which invoice supplied which tokens: leftovers from one transfer could
+    // settle another invoice. LiquidFlow's production ERC-20 path uses a unique
+    // deposit address per invoice and attributes canonical Transfer logs instead.
+    function settleToken(bytes32, address) external pure {
+        revert TokenSettlementDisabled();
     }
 
     // ----------------------------- Helpers --------------------------------- //

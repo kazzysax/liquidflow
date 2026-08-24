@@ -16,7 +16,7 @@ async function confirmPayment(payment, confirmations) {
   }
 
   const fresh = await store.get(`payment:${payment.id}`);
-  if (fresh && fresh.status && fresh.status !== 'awaiting_payment') {
+  if (fresh && fresh.status && !['awaiting_payment', 'awaiting_topup', 'checking_finality'].includes(fresh.status)) {
     Object.assign(payment, fresh);
     return false;
   }
