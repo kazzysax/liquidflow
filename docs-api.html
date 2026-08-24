@@ -42,6 +42,7 @@
     <nav class="docnav">
       <a href="docs.html">Overview</a>
       <a href="docs-api.html" class="active">API Reference</a>
+      <a href="audit.html">Audit</a>
       <a href="security.html">Security</a>
       <a href="roadmap.html">Roadmap</a>
       <a href="gateway.html">Gateway →</a>
@@ -57,56 +58,62 @@
     <ul>
       <li><b>Base URL</b> — <code>https://liquidflow-io.vercel.app</code></li>
       <li><b>Auth</b> — merchant/payment endpoints take <code>Authorization: Bearer &lt;api_key&gt;</code></li>
-      <li><b>Chains</b> — <code>eip155:84532</code> (Base), <code>eip155:5042002</code> (Arc), <code>solana</code>, <code>sui</code></li>
-      <li><b>Decimals</b> — ETH 18 · USDC 6 · SOL/SUI 9. Send <code>amount</code> in base units.</li>
+      <li><b>Chains</b> — <code>eip155:1</code> (Ethereum), <code>eip155:137</code> (Polygon), <code>eip155:8453</code> (Base)</li>
+      <li><b>Assets</b> — VERSE on Ethereum, fxVERSE on Polygon, and canonical USDC on Ethereum, Polygon and Base.</li>
+      <li><b>Decimals</b> — VERSE/fxVERSE 18 · USDC 6. Send <code>amount</code> as a positive integer in base units.</li>
     </ul>
-    <div class="note">⚠️ Testnet, unaudited. Keys and receipts here guard payment <i>metadata</i> only — never funds.</div>
+    <div class="note">Security status: internally reviewed and tested, but not independently certified. Use controlled values until the external audit and mainnet rehearsal are complete. See <a href="audit.html">Audit</a>.</div>
 
     <h2>Merchants</h2>
     <h3><span class="m post">POST</span> /api/merchants</h3>
-    <p>Create a merchant and receive an API key. In <code>stealth</code> mode you also get two spend keys (EVM + ed25519) shown <b>once</b> — they sweep your deposits.</p>
-    <pre><code>curl -X POST /api/merchants -H "Content-Type: application/json" -d '{
+    <p>Create a merchant and receive an API key. In <code>stealth</code> mode the EVM spend and view keys are shown <b>once</b>; store them offline because LiquidFlow does not retain the spend key.</p>
+    <pre><code>curl -X POST https://liquidflow-io.vercel.app/api/merchants \
+  -H "Content-Type: application/json" -d '{
   "name": "Acme",
-  "mode": "stealth",            // "stealth" (private) or "instant"
+  "mode": "stealth",
   "plan": "Growth ($18/mo)",
-  "chains": ["eip155:84532"],
+  "chains": ["eip155:1", "eip155:137", "eip155:8453"],
   "settle": "USDC",
-  "payout": "0x…",              // instant mode payout wallet
+  "payout": "",
   "webhook": "https://acme.com/lf/hook"
 }'
-// → { "merchant_id","api_key":"lf_live_…","webhook_secret":"whsec_…",
-//     "mode","plan","spend_key","spend_key_ed25519" }</code></pre>
+# Returns merchant_id, api_key, webhook_secret, spend_key, view_key and onboarding.</code></pre>
     <h3><span class="m get">GET</span> /api/merchants</h3>
     <p>Authenticated. Returns the merchant profile (name, mode, plan, chains, payout, webhook secret, created_at).</p>
 
     <h2>Payments</h2>
     <h3><span class="m post">POST</span> /api/payments</h3>
     <p>Authenticated. Creates a payment and derives a one-time deposit address (stealth) for the chain.</p>
-    <pre><code>curl -X POST /api/payments -H "Authorization: Bearer lf_live_…" \
+    <pre><code>curl -X POST https://liquidflow-io.vercel.app/api/payments \
+  -H "Authorization: Bearer lf_live_…" \
   -H "Content-Type: application/json" -d '{
-  "amount": "1000000000000000",  // base units (0.001 ETH)
-  "asset": "ETH",
-  "chain": "eip155:84532",
+  "amount": "1000000",
+  "asset": "USDC",
+  "chain": "eip155:137",
   "label": "Order #1024"
 }'
-// → { "payment_id","deposit_address","amount","asset","chain",
-//     "decimals","symbol","status":"awaiting_payment","expires_at" }</code></pre>
+# Returns payment_id, deposit_address, amount, asset, chain, status and expires_at.</code></pre>
     <h3><span class="m get">GET</span> /api/payments</h3>
     <p>Authenticated. Lists the merchant's payments plus stats. Confirms any pending deposit that has landed on-chain (on-demand).</p>
-    <pre><code>// → { "payments":[…], "stats":{"total","confirmed","pending","volume"} }</code></pre>
+    <pre><code># Returns { "payments":[…], "stats":{"total","confirmed","pending","volume"} }</code></pre>
     <h3><span class="m get">GET</span> /api/payments/:id</h3>
-    <p>Returns one payment's status and runs an on-demand on-chain check (so a real deposit confirms within seconds). Merchant payments require the owning key; public fundraiser donations are readable by id.</p>
+    <p>Returns one payment's status and runs an on-demand finality-aware chain check. Merchant payments require the owning key. Possible states include <code>awaiting_payment</code>, <code>awaiting_topup</code>, <code>checking_finality</code>, <code>confirmed</code>, <code>refund_pending</code>, <code>manual_review</code>, <code>expired</code> and <code>cancelled</code>.</p>
+    <pre><code>curl https://liquidflow-io.vercel.app/api/payments/pay_… \
+  -H "Authorization: Bearer lf_live_…"
+
+# Release goods only when the returned status is "confirmed".</code></pre>
     <h3><span class="m post">POST</span> /api/simulate/:id</h3>
-    <p>Test-only. Marks a payment confirmed and fires its webhook — handy for testing your webhook handler without sending funds. <code>→ { "ok":true, "webhook_sent":true }</code></p>
+    <p>Internal development helper only. It is disabled in production and requires both <code>ALLOW_TEST_CONFIRM=1</code> and the server-side test secret. A merchant API key cannot simulate confirmation.</p>
 
     <h2>Fundraisers (Potlock)</h2>
     <h3><span class="m post">POST</span> /api/fundraisers</h3>
     <p>Create a private fundraising campaign with its own stealth keypair. Returns a shareable URL and the sweep key (once).</p>
-    <pre><code>curl -X POST /api/fundraisers -H "Content-Type: application/json" -d '{
+    <pre><code>curl -X POST https://liquidflow-io.vercel.app/api/fundraisers \
+  -H "Content-Type: application/json" -d '{
   "title": "Rebuild the library", "description":"…",
-  "goal": 2, "chain": "eip155:84532"
+  "goal": 2, "chain": "eip155:137", "asset": "USDC"
 }'
-// → { "id","slug","url":"/potlock-private.html?id=…","spend_key" }</code></pre>
+# Returns id, slug, share URL and the one-time spend key.</code></pre>
     <h3><span class="m get">GET</span> /api/fundraisers</h3><p>Public list of campaigns with live totals (computed from confirmed on-chain donations).</p>
     <h3><span class="m get">GET</span> /api/fundraisers/:id</h3><p>Campaign details: <code>raised</code>, <code>pct</code>, <code>donation_count</code>, <code>recent[]</code>, <code>symbol</code>, <code>decimals</code>.</p>
     <h3><span class="m post">POST</span> /api/fundraisers/:id</h3><p>Make a private donation. Body <code>{ "amount": "&lt;base units&gt;" }</code> → returns a one-time <code>deposit_address</code>.</p>
@@ -114,9 +121,10 @@
     <h2>Payroll</h2>
     <p>The business deploys its <b>own</b> <code>PayrollScheduler</code> (native) or <code>PayrollSchedulerERC20</code> (USDC) contract from its wallet, then registers it so Liquid Flow's trigger key can automate due releases. See <a href="security.html">Security</a> for the non-custodial guarantee.</p>
     <h3><span class="m post">POST</span> /api/payroll</h3>
-    <pre><code>curl -X POST /api/payroll -H "Content-Type: application/json" -d '{
+    <pre><code>curl -X POST https://liquidflow-io.vercel.app/api/payroll \
+  -H "Content-Type: application/json" -d '{
   "contract": "0x…",  "company": "0x…", "name": "Acme payroll",
-  "token": "0x1c7D…7238", "decimals": 6, "symbol": "USDC"   // omit token for native
+  "token": "0x1c7D…7238", "decimals": 6, "symbol": "USDC"
 }'</code></pre>
     <h3><span class="m get">GET</span> /api/payroll?company=0x…</h3><p>List a company's payroll contracts.</p>
     <h3><span class="m get">GET</span> /api/payroll/:contract</h3>
@@ -124,8 +132,8 @@
 
     <h2>Webhooks</h2>
     <p>When a payment confirms, Liquid Flow POSTs a JSON event to your <code>webhook</code> URL:</p>
-    <pre><code>{ "type":"payment.confirmed", "payment_id":"pay_…", "amount":"…",
-  "asset":"ETH", "chain":"eip155:84532", "confirmations":3, "final":true }</code></pre>
+    <pre><code>{ "type":"payment.confirmed", "payment_id":"pay_…", "amount":"1000000",
+  "asset":"USDC", "chain":"eip155:137", "confirmations":128, "final":true }</code></pre>
     <p>Each request carries a signature header. Verify it with your <code>webhook_secret</code>:</p>
     <pre><code>Header:  LF-Signature: t=&lt;ms&gt;,v1=&lt;hex&gt;
 signed = HMAC_SHA256(webhook_secret, `${t}.${rawBody}`)   // compare to v1
@@ -134,7 +142,7 @@ signed = HMAC_SHA256(webhook_secret, `${t}.${rawBody}`)   // compare to v1
 const [ts,v1] = header.split(',').map(s=>s.split('=')[1]);
 const expected = crypto.createHmac('sha256', secret).update(`${ts}.${raw}`).digest('hex');
 const ok = crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected));</code></pre>
-    <p>Reject if the signature fails or the timestamp is stale. A copy-proof receipt is also issued to the payer as a fallback if a webhook is missed.</p>
+    <p>Reject if the signature fails or the timestamp is stale. Treat duplicate <code>LF-Webhook-Id</code> values idempotently, and verify payment status with <code>GET /api/payments/:id</code> before releasing high-value goods.</p>
 
     <h2>Errors</h2>
     <table>
@@ -145,6 +153,6 @@ const ok = crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected));</code
       <tr><td><code>405</code></td><td>Method not allowed on that route.</td></tr>
     </table>
   </div>
-  <div class="foot">Testnet, unaudited — see <a href="security.html">Security</a> and <a href="roadmap.html">Roadmap</a>.</div>
+  <div class="foot">Internal audit completed; independent certification and mainnet rehearsal remain — see <a href="audit.html">Audit</a>.</div>
 </body>
 </html>

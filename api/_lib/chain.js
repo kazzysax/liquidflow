@@ -156,9 +156,16 @@ async function tokenTransfersTo(payment) {
     fromBlock: '0x' + from.toString(16), toBlock: '0x' + safe.toString(16),
     topics: [TRANSFER_TOPIC, null, recipient] }]);
   if (!Array.isArray(logs) || logs.length > 100) throw new Error('unexpected transfer log count');
+  const blockNumbers = [...new Set(logs.map(log => log.blockNumber))];
+  const blocks = new Map(await Promise.all(blockNumbers.map(async number => {
+    const block = await rpc(payment.chain, 'eth_getBlockByNumber', [number, false]);
+    if (!block || block.timestamp == null) throw new Error('missing transfer block timestamp');
+    return [number, Number(BigInt(block.timestamp) * 1000n)];
+  })));
   return logs.map(log => ({ id: `${log.transactionHash}:${log.logIndex}`, txHash: log.transactionHash,
     logIndex: log.logIndex, blockNumber: BigInt(log.blockNumber).toString(),
-    from: '0x' + String(log.topics[1]).slice(-40), amount: BigInt(log.data).toString() }));
+    blockTimestamp: blocks.get(log.blockNumber), from: '0x' + String(log.topics[1]).slice(-40),
+    amount: BigInt(log.data).toString() }));
 }
 
 function classifyTransfers(payment, transfers, now = Date.now()) {
@@ -166,9 +173,11 @@ function classifyTransfers(payment, transfers, now = Date.now()) {
   const unique = [...new Map((transfers || []).map(t => [t.id, t])).values()];
   const senders = [...new Set(unique.map(t => t.from.toLowerCase()))];
   const received = unique.reduce((sum, t) => sum + BigInt(t.amount), 0n);
+  const timely = unique.filter(t => payment.expiresAt == null || (Number.isFinite(t.blockTimestamp) && t.blockTimestamp <= payment.expiresAt));
+  const timelyReceived = timely.reduce((sum, t) => sum + BigInt(t.amount), 0n);
   if (senders.length > 1) return { status: 'manual_review', received, sender: null, refund: null };
-  if (received === need) return { status: 'confirmed', received, sender: senders[0] || null, refund: null };
-  if (received > need) return { status: 'refund_pending', received, sender: senders[0], refund: received - need };
+  if (timelyReceived === need && received === need) return { status: 'confirmed', received, sender: senders[0] || null, refund: null };
+  if (timelyReceived >= need) return { status: 'refund_pending', received, sender: senders[0], refund: received - need };
   if (received > 0n && (payment.expiresAt == null || now < payment.expiresAt)) return { status: 'awaiting_topup', received, sender: senders[0], refund: null };
   if (payment.expiresAt != null && now < payment.expiresAt + FINALITY_GRACE_MS) return { status: 'checking_finality', received, sender: senders[0] || null, refund: null };
   if (received > 0n) return { status: 'refund_pending', received, sender: senders[0], refund: received };

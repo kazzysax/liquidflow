@@ -129,10 +129,9 @@
         <div class="sub">Pick one or more, or accept everything. You can change this later.</div>
         <div class="field">
           <div class="grid" id="chainGrid">
-            <button class="opt" aria-pressed="true" data-v="Base"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Base</span></button>
-            <button class="opt" aria-pressed="false" data-v="Arc"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Arc</span></button>
-            <button class="opt" aria-pressed="false" data-v="Solana"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Solana</span></button>
-            <button class="opt" aria-pressed="false" data-v="Sui"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Sui</span></button>
+            <button class="opt" aria-pressed="true" data-v="eip155:1"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Ethereum</span></button>
+            <button class="opt" aria-pressed="true" data-v="eip155:137"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Polygon</span></button>
+            <button class="opt" aria-pressed="true" data-v="eip155:8453"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Base</span></button>
           </div>
         </div>
       </div>
@@ -147,10 +146,8 @@
           <div class="hint">The asset you want to hold after payments arrive.</div>
           <select id="settleCur">
             <option value="USDC">USDC — USD stablecoin (recommended)</option>
-            <option value="USDT">USDT — USD stablecoin</option>
-            <option value="DAI">DAI — decentralized stablecoin</option>
-            <option value="ETH">ETH — native, no swap</option>
-            <option value="native">Keep each chain's native asset (no swap)</option>
+            <option value="VERSE">VERSE — Verse ecosystem token</option>
+            <option value="FXVERSE">fxVERSE — Verse on Polygon</option>
           </select>
         </div>
 
@@ -158,22 +155,22 @@
           <label>Liquidity unification</label>
           <div class="toggle-row">
             <div>
-              <div class="t">Unify all incoming crypto into my settlement currency</div>
-              <div class="d">Any asset on any chain is swapped to your settlement currency at payment time, locking value. If off, funds stay as sent.</div>
+              <div class="t">Liquidity unification (coming after route audit)</div>
+              <div class="d">For this submission, funds remain in the verified asset received. Automated swaps stay disabled.</div>
             </div>
-            <button class="switch" id="unifySwitch" aria-pressed="true" onclick="toggleSwitch(this)"></button>
+            <button class="switch" id="unifySwitch" aria-pressed="false" onclick="toggleSwitch(this)"></button>
           </div>
-          <div class="warn-note" id="unifyWarn">
+          <div class="warn-note" id="unifyWarn" style="display:none">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-            <span>Unification settles funds through NEAR Intents — slightly reduces on-chain privacy and is the area to confirm with counsel. Turn off for maximum privacy.</span>
+            <span>Automated DEX routing is not enabled in the audited submission engine.</span>
           </div>
         </div>
 
-        <div class="field" id="dexField">
+        <div class="field" id="dexField" style="opacity:.4;pointer-events:none">
           <label>Swap &amp; settlement provider</label>
-          <div class="hint">Swaps are settled through NEAR Intents. Routed through the public protocol — Liquid Flow never holds your funds.</div>
+          <div class="hint">A router will be selected only after route, slippage and oracle protections are audited.</div>
           <div class="grid" id="dexGrid">
-            <button class="opt" aria-pressed="true" data-v="NEAR Intents"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">NEAR Intents<span class="meta">Intent-based settlement</span></span></button>
+            <button class="opt" aria-pressed="true" data-v="Disabled pending audit"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Disabled<span class="meta">Pending independent route audit</span></span></button>
           </div>
         </div>
       </div>
@@ -187,16 +184,16 @@
           <label>Deposit address mode</label>
           <div class="hint">How payers receive an address to pay into.</div>
           <div style="display:flex;flex-direction:column;gap:9px">
-            <button class="opt" aria-pressed="true" data-v="instant" onclick="pickMode(this)" style="justify-content:flex-start">
+            <button class="opt" aria-pressed="false" data-v="instant" onclick="pickMode(this)" style="justify-content:flex-start">
               <span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span>
               <span class="nm">Instant forward<span class="meta">One gate address, funds forwarded to you instantly. Public & fast.</span></span>
             </button>
-            <button class="opt" aria-pressed="false" data-v="stealth" onclick="pickMode(this)" style="justify-content:flex-start">
+            <button class="opt" aria-pressed="true" data-v="stealth" onclick="pickMode(this)" style="justify-content:flex-start">
               <span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span>
               <span class="nm">Private (stealth)<span class="meta">Fresh unlinkable address per payment. You sweep later. Hides your balance.</span></span>
             </button>
           </div>
-          <div class="privacy-note" id="privNote" style="display:none">
+          <div class="privacy-note" id="privNote" style="display:flex">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2" style="flex-shrink:0;margin-top:1px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
             <span>Private mode: you publish a stealth key once at setup — no action needed per payment. Amounts stay visible so confirmations and tracking still work; payer↔you links are hidden. You sweep funds with your own key on your schedule.</span>
           </div>
@@ -258,7 +255,7 @@
 
 <script>
   let step=0; const TOTAL=5;
-  const cfg={ chains:['Base'], settle:'USDC', unify:true, dex:'NEAR Intents', mode:'instant', plan:'Starter ($10/mo)', payout:'', webhook:'' };
+  const cfg={ chains:['eip155:1','eip155:137','eip155:8453'], settle:'USDC', unify:false, dex:'Disabled pending audit', mode:'stealth', plan:'Starter ($10/mo)', payout:'', webhook:'' };
 
   function pickPlan(el){
     document.querySelectorAll('#planGrid .plan').forEach(p=>p.setAttribute('aria-pressed','false'));
@@ -332,7 +329,7 @@
     window.scrollTo({top:0,behavior:'smooth'});
   }
 
-  let _acct=null; // { key, spend_key, spend_key_ed25519, onboarding }
+  let _acct=null; // { key, spend_key, view_key, onboarding }
 
   async function createSystem(){
     const btn=document.getElementById('nextBtn');
@@ -348,7 +345,7 @@
       });
       if(!res.ok){const e=await res.json();throw new Error(e.error||'server error');}
       const data=await res.json();
-      _acct={ key:data.api_key, spend_key:data.spend_key, spend_key_ed25519:data.spend_key_ed25519, onboarding:data.onboarding };
+      _acct={ key:data.api_key, spend_key:data.spend_key, view_key:data.view_key, onboarding:data.onboarding };
       // remember key so the dashboard auto-signs in once active
       try{ localStorage.setItem('lf_dash_key', data.api_key); }catch(e){}
       renderActivation();
@@ -359,18 +356,18 @@
     }
   }
 
-  // Pay-to-activate: the gateway is created but INERT until the $5/mo fee is paid on Arc.
+  // Pay-to-activate: the gateway is created but inert until the Polygon USDC fee is paid.
   function renderActivation(){
     const ob=_acct.onboarding;
     const amt=(Number(ob.amount)/Math.pow(10, ob.decimals||6));
     const panel=document.querySelector('[data-panel="4"]');
     panel.innerHTML =
       '<h1>Activate your gateway</h1>'
-      +'<div class="sub">Your gateway is created. Pay the <b>$'+amt+' / month</b> fee on <b>Arc (USDC)</b> to switch it on. This is your first run through the Liquid Flow payment flow — confirmation is automatic once the deposit lands on-chain.</div>'
-      +'<div class="apikey"><div class="lbl">Send exactly '+amt+' USDC on Arc to</div>'
+      +'<div class="sub">Your gateway is created. Pay the <b>$'+amt+' / month</b> fee in <b>USDC on Polygon</b> to switch it on. Confirmation is automatic after the required mainnet finality.</div>'
+      +'<div class="apikey"><div class="lbl">Send exactly '+amt+' USDC on Polygon to</div>'
       +'<div class="key"><span class="mono" id="obAddr" style="word-break:break-all">'+ob.deposit_address+'</span><button class="copy" onclick="copyText(\''+ob.deposit_address+'\',this)">Copy</button></div></div>'
       +'<div class="hint" id="obStatus" style="margin-top:12px">⏳ Waiting for your payment… (checks automatically every few seconds)</div>'
-      +'<div class="hint" style="margin-top:8px">Need Arc test USDC? Grab some free from the <a href="faucet.html" target="_blank">testnet faucet →</a></div>'
+      +'<div class="hint" style="margin-top:8px">Use canonical native USDC on Polygon. This is a mainnet payment.</div>'
       +'<div class="apikey" id="apiKeyBox" style="display:none;margin-top:16px"><div class="lbl">✅ Gateway active — your API key</div>'
       +'<div class="key"><span id="apiKeyVal" class="mono"></span><button class="copy" onclick="copyText(document.getElementById(\'apiKeyVal\').textContent,this)">Copy</button></div></div>';
     document.getElementById('backBtn').style.display='none';

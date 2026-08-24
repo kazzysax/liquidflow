@@ -60,26 +60,8 @@ const server = http.createServer(async (req, nodeRes) => {
   nodeRes.end(fs.readFileSync(full));
 });
 
-server.listen(PORT, async () => {
-  const store = require('./api/_lib/store');
-  const base = `http://localhost:${PORT}`;
-  const j = async (p, opt) => (await fetch(base + p, opt)).json();
-
-  // 1) merchant (stealth → fresh unique deposit address per payment) → activate → sample payment
-  const m = await j('/api/merchants', { method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ name:'Aurora Store', mode:'stealth', webhook:'https://example.com/hook' }) });
-  const rec = await store.get(`merchant:${m.api_key}`); rec.status='active'; await store.set(`merchant:${m.api_key}`, rec);
-  const pay = await j('/api/payments', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+m.api_key},
-    body: JSON.stringify({ amount:'1500000', asset:'USDC', chain:'eip155:5042002', label:'Order #1024 — Pro plan' }) });
-
-  // 2) fundraiser (for the Potlock donation page)
-  const fr = await j('/api/fundraisers', { method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ title:'Open Source Grants', goal:2, chain:'eip155:84532' }) });
-
-  console.log('\n=== Liquid Flow demo server on ' + base + ' ===');
-  console.log('\n[1] CHECKOUT — what a payer from another platform sees:');
-  console.log('    ' + base + '/pay.html?id=' + pay.payment_id);
-  console.log('\n[2] POTLOCK — public donation interface (by id):');
-  console.log('    ' + base + '/potlock-private.html?id=' + fr.id);
-  console.log('\n(Ctrl+C to stop)\n');
+server.listen(PORT, () => {
+  // Mainnet invoice creation intentionally fails without explicit RPC credentials.
+  // Keep local preview read-only instead of seeding obsolete testnet payments.
+  console.log(`LiquidFlow local preview: http://localhost:${PORT}`);
 });

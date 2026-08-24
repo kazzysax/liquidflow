@@ -4,7 +4,7 @@ const { classifyTransfers } = require('../api/_lib/chain');
 
 const payer = '0x1111111111111111111111111111111111111111';
 const payment = { amount: '100', expiresAt: 10_000 };
-const tx = (id, amount, from = payer) => ({ id, amount, from, txHash: `0x${id}` });
+const tx = (id, amount, from = payer, blockTimestamp = 5_000) => ({ id, amount, from, txHash: `0x${id}`, blockTimestamp });
 
 test('exact transfer confirms and duplicate logs are ignored', () => {
   const result = classifyTransfers(payment, [tx('a', '100'), tx('a', '100')], 5_000);
@@ -32,4 +32,10 @@ test('expired underpayment refunds the full amount after finality grace', () => 
 test('payments from multiple senders require manual review', () => {
   const result = classifyTransfers(payment, [tx('a', '50'), tx('b', '50', '0x2222222222222222222222222222222222222222')], 5_000);
   assert.equal(result.status, 'manual_review');
+});
+
+test('a transfer mined after invoice expiry is refunded instead of confirmed', () => {
+  const result = classifyTransfers(payment, [tx('late', '100', payer, 10_001)], 700_001);
+  assert.equal(result.status, 'refund_pending');
+  assert.equal(result.refund, 100n);
 });

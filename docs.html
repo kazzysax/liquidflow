@@ -51,6 +51,7 @@
     <nav class="docnav">
       <a href="docs.html" class="active">Overview</a>
       <a href="docs-api.html">API Reference</a>
+      <a href="audit.html">Audit</a>
       <a href="security.html">Security</a>
       <a href="roadmap.html">Roadmap</a>
       <a href="gateway.html">Gateway →</a>
@@ -60,7 +61,7 @@
   <div class="wrap">
     <div class="eyebrow">Documentation</div>
     <h1>Liquid Flow overview</h1>
-    <p class="lead">Liquid Flow is a private, non-custodial, multichain crypto-payment layer that platforms embed. It gives you three systems — merchant payments, private fundraising, and automated payroll — behind one API, without ever holding your keys or your funds.</p>
+    <p class="lead">LiquidFlow is the non-custodial payment portal for Verse dApps. It accepts VERSE, fxVERSE and canonical USDC through generated-address checkout, finality-aware verification and signed webhooks.</p>
 
     <div class="note">⚠️ <b>Testnet.</b> Everything described here runs on public testnets and is <b>unaudited</b>. Do not move real funds. An independent cryptographic and smart-contract audit gates mainnet — see the <a href="roadmap.html">Roadmap</a> and <a href="security.html">Security</a>.</div>
 
@@ -83,19 +84,18 @@
     <h2>How a payment works</h2>
     <ol style="margin-left:20px">
       <li><b>Request</b> — your platform calls <code>POST /api/payments</code>; we derive a fresh one-time stealth address.</li>
-      <li><b>Pay</b> — the payer sends crypto to that address on any supported chain. Nothing links it back to them.</li>
-      <li><b>Confirm</b> — our watcher sees the deposit on-chain and marks it settled (also on-demand when you poll).</li>
-      <li><b>Notify</b> — an HMAC-signed webhook hits your app with a copy-proof receipt; you release the goods.</li>
+      <li><b>Pay</b> — the payer sends VERSE, fxVERSE or USDC to that address on the selected supported mainnet.</li>
+      <li><b>Confirm</b> — our watcher verifies canonical token Transfer events at the required finality depth (also on-demand when you poll).</li>
+      <li><b>Notify</b> — an HMAC-signed webhook reaches your app; verify it and re-check payment status before releasing high-value goods.</li>
     </ol>
 
     <h2>Supported chains</h2>
-    <p>Multichain — EVM and non-EVM — with more added continuously. Live today:</p>
+    <p>The submission engine is intentionally limited to the documented EVM mainnets and canonical token contracts:</p>
     <table>
-      <tr><th>Chain</th><th>Type</th><th>Native asset</th><th>Stealth curve</th></tr>
-      <tr><td>Base</td><td>EVM</td><td>ETH</td><td>secp256k1</td></tr>
-      <tr><td>Arc (Circle)</td><td>EVM</td><td>USDC (6 dp)</td><td>secp256k1</td></tr>
-      <tr><td>Solana</td><td>non-EVM</td><td>SOL</td><td>ed25519</td></tr>
-      <tr><td>Sui</td><td>non-EVM</td><td>SUI</td><td>ed25519</td></tr>
+      <tr><th>Chain</th><th>Identifier</th><th>Accepted assets</th><th>Stealth curve</th></tr>
+      <tr><td>Ethereum</td><td><code>eip155:1</code></td><td>VERSE, USDC</td><td>secp256k1</td></tr>
+      <tr><td>Polygon</td><td><code>eip155:137</code></td><td>fxVERSE, USDC</td><td>secp256k1</td></tr>
+      <tr><td>Base</td><td><code>eip155:8453</code></td><td>USDC</td><td>secp256k1</td></tr>
     </table>
 
     <h2>Quickstart</h2>
@@ -103,13 +103,13 @@
     <pre><code># 1. Create a merchant (returns an API key)
 curl -X POST https://liquidflow-io.vercel.app/api/merchants \
   -H "Content-Type: application/json" \
-  -d '{"name":"Acme","mode":"stealth","webhook":"https://acme.com/hook"}'
+  -d '{"name":"Acme","mode":"stealth","chains":["eip155:1","eip155:137","eip155:8453"],"settle":"USDC","webhook":"https://acme.com/hook"}'
 
 # 2. Create a payment (use the api_key from step 1)
 curl -X POST https://liquidflow-io.vercel.app/api/payments \
   -H "Authorization: Bearer lf_live_..." \
   -H "Content-Type: application/json" \
-  -d '{"amount":"1000000000000000","asset":"ETH","chain":"eip155:84532"}'
+  -d '{"amount":"1000000","asset":"USDC","chain":"eip155:137","label":"Order #1024"}'
 # → { "deposit_address": "0x…", "status": "awaiting_payment", … }</code></pre>
 
     <h2>Keep reading</h2>

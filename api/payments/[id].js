@@ -63,6 +63,10 @@ module.exports = async function handler(req, res) {
     asset:           payment.asset,
     chain:           payment.chain,
     confirmed_at:    payment.confirmedAt || null,
+    received_amount: payment.receivedAmount || '0',
+    payer_address:   payment.payerAddress || null,
+    transaction_hashes: payment.transactionHashes || [],
+    refund:          payment.refund || null,
     expires_at:      payment.expiresAt,
     remaining_seconds: Math.ceil(remainingMs / 1000),
   });

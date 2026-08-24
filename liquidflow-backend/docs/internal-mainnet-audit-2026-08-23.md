@@ -1,11 +1,12 @@
-# LiquidFlow Internal Mainnet Audit — 2026-08-23
+# LiquidFlow Internal Mainnet Audit — Final submission pass
 
 ## Status
 
-**NOT CLEARED FOR MAINNET FUNDS.** This is an internal engineering review, not an
-independent audit certificate. The internal critical accounting defects identified in
-this review are now remediated, but mainnet activation remains blocked by an external
-cryptography/smart-contract assessment and the operational items below.
+**INTERNAL REVIEW COMPLETE — NOT AN INDEPENDENT AUDIT CERTIFICATE.** The critical
+accounting defects identified in this review are remediated and the submitted MVP is
+ready for controlled-value demonstration. Unrestricted mainnet activation remains
+blocked by an external cryptography/smart-contract assessment and the operational
+items below.
 
 Scope reviewed: EVM stealth derivation and recovery, merchant creation, ERC-20 payment
 confirmation, Circle CCTP V2 transaction planning/relay, PaymentGate token settlement,
@@ -43,7 +44,7 @@ short TTL permits recovery if an instance terminates before completing the trans
 
 The sweep test skipped the mandatory timelock and another test expected zero-value
 payment gates even though the contract rejects them. Tests now assert the intended
-fail-closed behavior. Current result: 14/14 Foundry tests pass.
+fail-closed behavior. Current result: 10/10 Foundry tests pass.
 
 ## Accounting remediations and remaining mainnet blockers
 
@@ -51,8 +52,9 @@ fail-closed behavior. Current result: 14/14 Foundry tests pass.
 
 Payments are anchored to the chain head at creation. The watcher now queries canonical
 token `Transfer` logs at the configured confirmation depth, deduplicates transaction/log
-identifiers, records senders and hashes, and classifies exact, partial, excess, expired,
-and multiple-sender deposits. Multiple senders fail closed into manual review.
+identifiers, records senders, hashes and block timestamps, and classifies exact,
+partial, excess, expired, late and multiple-sender deposits. Multiple senders fail
+closed into manual review; transfers mined after expiry cannot confirm an invoice.
 
 ### LF-A07 — PaymentGate pooled ERC-20 settlement (Critical, resolved by disablement)
 
@@ -61,13 +63,13 @@ operator. Core ERC-20 checkout continues through unique merchant-controlled depo
 addresses. A future contract token path requires invoice-isolated `transferFrom`
 accounting and a separate audit before it can be enabled.
 
-### LF-A08 — Refund classification and authorization (Critical, partially resolved)
+### LF-A08 — Refund classification and authorization (Critical accounting resolved)
 
 The watcher records `awaiting_topup`, `refund_pending`, and `manual_review`, locks the
 refund destination to the sole confirmed Transfer sender, and queues only the proper
-excess or expired partial amount. Refund execution remains merchant-authorized and is
-not silently signed by the server. The signed execution and `refunded`/`refund_failed`
-receipt workflow remains an operational mainnet blocker.
+excess, late or expired partial amount. Refund execution remains merchant-authorized
+and is not silently signed by the server. Automated signed execution remains disabled
+until the gas and receipt workflow is externally reviewed.
 
 ### LF-A09 — Gas-station funding is not implemented (High)
 
@@ -104,7 +106,7 @@ exercise recovery, and document emergency procedures.
 
 ## Evidence
 
-- Node security/engine tests: **17 passed, 0 failed**.
+- Node security/engine tests: **18 passed, 0 failed**.
 - Foundry contract tests: **10 passed, 0 failed**.
 - Production dependency audit (`--omit=dev`, high threshold): **0 vulnerabilities**.
 - Canonical asset allowlist covered by tests: VERSE/Ethereum, fxVERSE/Polygon,

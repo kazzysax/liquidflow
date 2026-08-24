@@ -42,6 +42,10 @@ function publicView(p) {
     privacy_mode:    p.mode,
     created_at:      p.createdAt,
     confirmed_at:    p.confirmedAt || null,
+    received_amount: p.receivedAmount || '0',
+    payer_address:   p.payerAddress || null,
+    transaction_hashes: p.transactionHashes || [],
+    refund:          p.refund || null,
     expires_at:      p.expiresAt,
     remaining_seconds: Math.ceil(remainingMs / 1000),
   };
