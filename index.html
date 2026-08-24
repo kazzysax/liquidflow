@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Liquid Flow — Gated payments for web3</title>
+<title>LiquidFlow — Walletless VERSE and USDC payments</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <script src="theme-toggle.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -146,6 +146,11 @@
   .chains .ch{display:flex;align-items:center;gap:11px;font-family:var(--display);font-weight:500;font-size:16.5px;color:var(--ink-2);padding:0 28px;white-space:nowrap;transition:color .25s,transform .25s}
   .chains .ch:hover{color:var(--ink);transform:translateY(-1px)}
   .chains .ch svg{flex-shrink:0}
+  .marquee{display:none}
+  .supported-grid{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}
+  .supported-pill{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line-2);border-radius:100px;padding:11px 18px;font-family:var(--display);font-size:14px;font-weight:500;color:var(--ink);box-shadow:0 10px 24px -20px rgba(10,27,61,.4)}
+  .supported-pill .token-dot{width:25px;height:25px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700;background:linear-gradient(135deg,#7C3AED,#1E5BFF)}
+  .supported-pill.usdc .token-dot{background:#2775CA}
   @media (prefers-reduced-motion:reduce){.marquee-track{animation:none;flex-wrap:wrap;justify-content:center;width:100%}.marquee{mask-image:none;-webkit-mask-image:none}}
 
   /* ---------- section frame ---------- */
@@ -245,12 +250,6 @@
 </head>
 <body>
 
-<!-- ============ TEMP: testnet faucet portal (remove after testnet phase) ============ -->
-<a href="faucet.html" id="faucetBar" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:9px 16px;background:linear-gradient(90deg,#1E5BFF,#5B8DFF);color:#fff;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:500;text-align:center;position:relative;z-index:60;line-height:1.4">
-  <span style="background:rgba(255,255,255,.22);border-radius:100px;padding:2px 9px;font-size:11px;font-weight:600;letter-spacing:.3px;text-transform:uppercase">Testnet</span>
-  <span>Need Arc test USDC to try Liquid Flow? Get some free from the faucet →</span>
-</a>
-
 <!-- ============ NAV ============ -->
 <header id="hdr">
   <div class="wrap nav">
@@ -281,9 +280,9 @@
   <div class="hero-bg"><canvas id="heroMesh"></canvas><div class="blob b1"></div><div class="blob b2"></div></div>
   <div class="wrap hero-grid">
     <div class="hero-copy">
-      <div class="reveal in d1" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--flow);background:rgba(30,91,255,0.08);border:1px solid rgba(30,91,255,0.16);padding:7px 14px;border-radius:100px;margin-bottom:22px">Live on testnet — independent audit before mainnet</div>
-      <h1 class="hero-title reveal in d1">Private crypto payments,<br>and you keep the <em>keys</em>.</h1>
-      <p class="hero-sub reveal in d2">Liquid Flow is a drop-in, multichain payment gateway for web3 platforms — EVM and non-EVM, with new networks added continuously. Each payment lands at a one-time stealth address only you can sweep. We confirm it on-chain and webhook your app. Liquid Flow never holds your keys or your funds.</p>
+      <div class="reveal in d1" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--flow);background:rgba(30,91,255,0.08);border:1px solid rgba(30,91,255,0.16);padding:7px 14px;border-radius:100px;margin-bottom:22px">Built for the Verse ecosystem · Mainnet engine in audit</div>
+      <h1 class="hero-title reveal in d1">Accept VERSE and USDC.<br>No wallet connection <em>required</em>.</h1>
+      <p class="hero-sub reveal in d2">LiquidFlow gives every checkout a fresh payment address and QR code. Customers pay from Bitcoin.com Wallet or any compatible wallet, while merchants receive verified VERSE or unify USDC across Ethereum, Polygon and Base.</p>
       <div class="hero-actions reveal in d3">
         <a href="gateway.html" class="btn btn-primary btn-lg">Start building
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -291,20 +290,20 @@
         <a href="#how" class="btn btn-ghost btn-lg">See how it works</a>
       </div>
       <div class="trust-row reveal in d4">
-        <div class="ti"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" stroke="#1E5BFF" stroke-width="1.7" stroke-linejoin="round"/></svg> Non-custodial by design</div>
-        <div class="ti"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#1E5BFF" stroke-width="1.7"/><path d="M8 12l3 3 5-6" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> Private one-time addresses</div>
-        <div class="ti"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h10" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round"/></svg> Live on-chain confirmation</div>
+        <div class="ti"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" stroke="#1E5BFF" stroke-width="1.7" stroke-linejoin="round"/></svg> Merchant-controlled funds</div>
+        <div class="ti"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#1E5BFF" stroke-width="1.7"/><path d="M8 12l3 3 5-6" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> Copy address or scan QR</div>
+        <div class="ti"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h10" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round"/></svg> Mainnet token verification</div>
       </div>
     </div>
 
     <div class="hero-visual reveal in d2">
       <div class="chip c1">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#1D9E75" stroke-width="1.8"/><path d="M8 12l3 3 5-6" stroke="#1D9E75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Confirmed · on-chain
+        VERSE payment · confirmed
       </div>
       <div class="chip c2">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" stroke="#1E5BFF" stroke-width="1.8" stroke-linejoin="round"/></svg>
-        Stealth address
+        No wallet connection
       </div>
 
       <div class="gate-card">
@@ -314,27 +313,27 @@
               <svg width="22" height="22" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="21" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="3.5"/><path d="M6 28 a22 22 0 0 1 44 0" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#fff"/></svg>
             </div>
             <div>
-              <div class="nm">Merchant Wallet</div>
-              <div class="ad">Base · Arc · Solana · Sui</div>
+              <div class="nm">Verse Checkout</div>
+              <div class="ad">Ethereum · Polygon · Base</div>
             </div>
           </div>
           <div class="gc-badge"><span class="d"></span>Non-custodial</div>
         </div>
         <div class="gc-bal">
-          <div class="lbl">Latest payment</div>
-          <div class="amt">0.001<small>ETH · Base</small></div>
+          <div class="lbl">Payment request</div>
+          <div class="amt">250<small>VERSE · Ethereum</small></div>
         </div>
         <div class="gc-flow">
           <div class="ttl">Payment flow</div>
           <div class="txn in">
             <div class="ti"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 19V5M6 13l6 6 6-6" stroke="#1D9E75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-            <div class="mid"><div class="t1">Inbound · stealth address</div><div class="t2">Confirmed on-chain</div></div>
+            <div class="mid"><div class="t1">Generated payment address</div><div class="t2">Paid from Bitcoin.com Wallet</div></div>
             <div class="amt pos">Settled</div>
           </div>
           <div class="txn gate">
             <div class="ti"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="#1E5BFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-            <div class="mid"><div class="t1">Webhook · payment.confirmed</div><div class="t2">Sent to your app</div></div>
-            <div class="pend">Notified</div>
+            <div class="mid"><div class="t1">Merchant settlement</div><div class="t2">Verified and ready to unify</div></div>
+            <div class="pend">Ready</div>
           </div>
         </div>
       </div>
@@ -345,7 +344,14 @@
 <!-- ============ CHAINS CLOUD ============ -->
 <section class="cloud-sec" id="chains">
   <div class="wrap">
-    <p class="cloud-lbl reveal">One integration, many chains — EVM and non-EVM, with more added continuously</p>
+    <p class="cloud-lbl reveal">A focused mainnet payment network for the Verse community</p>
+    <div class="supported-grid reveal d1">
+      <div class="supported-pill"><span class="token-dot">V</span>VERSE · Ethereum</div>
+      <div class="supported-pill"><span class="token-dot">V</span>fxVERSE · Polygon</div>
+      <div class="supported-pill usdc"><span class="token-dot">$</span>USDC · Ethereum</div>
+      <div class="supported-pill usdc"><span class="token-dot">$</span>USDC · Polygon</div>
+      <div class="supported-pill usdc"><span class="token-dot">$</span>USDC · Base</div>
+    </div>
   </div>
   <div class="marquee reveal d1">
     <div class="marquee-track" id="chainTrack">
@@ -359,40 +365,40 @@
 <section class="block" id="product">
   <div class="wrap">
     <div class="sec-head reveal">
-      <div class="sec-tag">The payment layer</div>
-      <h2 class="sec-title">A private, non-custodial crypto payment gateway.</h2>
-      <p class="sec-desc">Liquid Flow gives your platform a drop-in way to accept crypto across many chains — private by default, confirmed on-chain, and always under your control.</p>
+      <div class="sec-tag">Verse-native payments</div>
+      <h2 class="sec-title">One simple checkout. A focused settlement engine.</h2>
+      <p class="sec-desc">Accept VERSE and canonical USDC without forcing customers through a wallet-connection flow. LiquidFlow verifies every supported token contract and keeps settlement choices with the merchant.</p>
     </div>
     <div class="feat-grid">
       <div class="feat reveal d1">
         <div class="fic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" stroke="#1E5BFF" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <h3>Non-custodial by design</h3>
-        <p>Every payment lands at a one-time address only you can sweep. Liquid Flow derives and watches addresses, but never holds a key that can move your money.</p>
+        <h3>Walletless checkout</h3>
+        <p>Customers copy a generated address or scan a QR code, then pay from Bitcoin.com Wallet or any compatible wallet. No account or wallet connection is required.</p>
       </div>
       <div class="feat reveal d2">
         <div class="fic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M3 12h4l3 7 4-14 3 7h4" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <h3>Private by default</h3>
-        <p>Each payment gets a fresh stealth address, so payers and your wallet stay unlinked on-chain. For fundraising, only the running total is ever public.</p>
+        <h3>VERSE comes first</h3>
+        <p>Accept official VERSE on Ethereum and fxVERSE on Polygon, with canonical contract verification built into every payment request.</p>
       </div>
       <div class="feat reveal d3">
         <div class="fic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="#1E5BFF" stroke-width="1.7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round"/></svg></div>
-        <h3>One API, multichain</h3>
-        <p>A single integration spans EVM and non-EVM networks — Base, Arc, Solana and Sui live today, with more added continuously. Chain adapters handle the differences; you don't.</p>
+        <h3>Universal USDC</h3>
+        <p>Receive native Circle USDC on Ethereum, Polygon and Base, then unify settlement across the three networks through Circle CCTP.</p>
       </div>
       <div class="feat reveal d1">
         <div class="fic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" stroke="#1E5BFF" stroke-width="1.7"/><path d="M9 9h6M9 13h6M9 17h3" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round"/></svg></div>
-        <h3>Real-time confirmation</h3>
-        <p>The deposit watcher confirms each payment on-chain within seconds and fires an HMAC-signed webhook to your app, so you can release the goods instantly.</p>
+        <h3>Verified on-chain</h3>
+        <p>The payment watcher validates the exact token contract, amount and confirmation depth before notifying the merchant through a signed webhook.</p>
       </div>
       <div class="feat reveal d2">
         <div class="fic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#1E5BFF" stroke-width="1.7"/><path d="M12 7v5l3 2" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <h3>Drop-in API &amp; dashboard</h3>
-        <p>Create a merchant, get an API key, and monitor every payment in a live dashboard. Wire it into your platform in an afternoon — copy-proof receipts included.</p>
+        <h3>Merchant-controlled settlement</h3>
+        <p>Keep the asset received or choose a preferred settlement asset and USDC home network. LiquidFlow coordinates; merchant authorization controls movement.</p>
       </div>
       <div class="feat reveal d3">
         <div class="fic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round"/><circle cx="18" cy="18" r="2.4" stroke="#1E5BFF" stroke-width="1.7"/></svg></div>
-        <h3>Optional on-chain gate</h3>
-        <p>For teams that want on-chain routing, deployed gate, multisig and payroll contracts add quorum control and velocity caps. Available on testnet today.</p>
+        <h3>Purpose-built payment windows</h3>
+        <p>Merchant checkouts stay open for ten minutes. Fundraiser addresses remain open, giving each payment flow the timing policy it actually needs.</p>
       </div>
     </div>
   </div>
@@ -406,13 +412,13 @@
       <div class="inner">
         <div class="sec-head" style="margin-bottom:0">
           <div class="sec-tag">How a payment works</div>
-          <h2 class="sec-title">Four steps from request to settled.</h2>
+          <h2 class="sec-title">From invoice to merchant settlement.</h2>
         </div>
         <div class="steps">
-          <div class="step"><div class="num">1</div><h4>Request</h4><p>Your platform calls the API for a payment. Liquid Flow derives a fresh one-time stealth address for it.</p></div>
-          <div class="step"><div class="num">2</div><h4>Pay</h4><p>The payer sends crypto to that address on the chain of their choice. Nothing links the payment back to them.</p></div>
-          <div class="step"><div class="num">3</div><h4>Confirm</h4><p>The watcher sees the deposit on-chain, counts confirmations, and marks the payment settled.</p></div>
-          <div class="step"><div class="num">4</div><h4>Notify</h4><p>An HMAC-signed webhook hits your app with a copy-proof receipt — you release the goods. Funds are yours to sweep anytime.</p></div>
+          <div class="step"><div class="num">1</div><h4>Create</h4><p>The merchant requests a payment and chooses VERSE or USDC, the network and settlement preference.</p></div>
+          <div class="step"><div class="num">2</div><h4>Pay</h4><p>LiquidFlow returns a fresh address and QR code. The customer pays from any compatible wallet—without connecting it.</p></div>
+          <div class="step"><div class="num">3</div><h4>Verify</h4><p>The watcher checks the canonical token contract, received amount and finality on the selected mainnet.</p></div>
+          <div class="step"><div class="num">4</div><h4>Settle</h4><p>The merchant receives a signed confirmation and can keep the asset or unify USDC to the preferred network.</p></div>
         </div>
       </div>
     </div>
@@ -423,10 +429,10 @@
 <section class="block" style="padding-top:0">
   <div class="wrap">
     <div class="stats">
-      <div class="stat reveal"><div class="v" data-count="99.99" data-suffix="%">0%</div><div class="k">Settlement accuracy target</div></div>
-      <div class="stat reveal d1"><div class="v" data-count="5" data-suffix="+">0+</div><div class="k">Chains under one gate</div></div>
-      <div class="stat reveal d2"><div class="v" data-count="0" data-suffix="" data-text="0">0</div><div class="k">Funds movable without approval</div></div>
-      <div class="stat reveal d3"><div class="v" data-count="24" data-suffix="/7">0</div><div class="k">Continuous reconciliation</div></div>
+      <div class="stat reveal"><div class="v" data-count="2" data-suffix="">0</div><div class="k">Focused payment assets</div></div>
+      <div class="stat reveal d1"><div class="v" data-count="3" data-suffix="">0</div><div class="k">Supported EVM mainnets</div></div>
+      <div class="stat reveal d2"><div class="v" data-count="0" data-suffix="" data-text="0">0</div><div class="k">Wallet connections required</div></div>
+      <div class="stat reveal d3"><div class="v" data-count="10" data-suffix=" min">0</div><div class="k">Merchant checkout window</div></div>
     </div>
   </div>
 </section>
@@ -436,24 +442,24 @@
   <div class="wrap sec-band">
     <div class="reveal">
       <div class="sec-tag">Security model</div>
-      <h2 class="sec-title">Built so Liquid Flow can never move your funds.</h2>
-      <p class="sec-desc">Non-custodial, private, and verifiable. Live on testnet today — an independent cryptographic and contract audit gates mainnet. <a href="security.html" style="color:var(--flow);font-weight:500">Read the full security model →</a></p>
+      <h2 class="sec-title">Mainnet scope with explicit safeguards.</h2>
+      <p class="sec-desc">The new engine is in pre-mainnet audit. Only official VERSE, fxVERSE and Circle USDC contracts are accepted, and no interface can supply an arbitrary token address. <a href="security.html" style="color:var(--flow);font-weight:500">Read the security model →</a></p>
       <div class="sec-list">
         <div class="sec-item">
           <div class="si-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" stroke="#1E5BFF" stroke-width="1.7" stroke-linejoin="round"/></svg></div>
-          <div><h4>Non-custodial keys</h4><p>Liquid Flow can time and authorize, but never holds a key that moves funds. Your spend key is shown once and stays with you.</p></div>
+          <div><h4>Separated authority</h4><p>LiquidFlow monitors and coordinates payments; merchant-controlled keys authorize settlement and recovery.</p></div>
         </div>
         <div class="sec-item">
           <div class="si-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-          <div><h4>Stealth privacy</h4><p>One-time addresses with separate view and spend keys keep every payer unlinked from your wallet on-chain.</p></div>
+          <div><h4>Canonical assets only</h4><p>Token symbols are never trusted on their own. Every payment is pinned to the approved issuer contract for its network.</p></div>
         </div>
         <div class="sec-item">
           <div class="si-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round"/></svg></div>
-          <div><h4>On-chain multisig &amp; caps</h4><p>Optional gate contracts add 2-of-N quorum, per-token velocity caps and a pause switch — deployed and tested on testnet.</p></div>
+          <div><h4>Finality-aware confirmation</h4><p>Network-specific confirmation depths protect merchants from premature settlement and shallow reorganizations.</p></div>
         </div>
         <div class="sec-item">
           <div class="si-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#1E5BFF" stroke-width="1.7"/><path d="M12 8v4l3 2" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round"/></svg></div>
-          <div><h4>Open &amp; auditable</h4><p>Address derivation uses standard secp256k1 and ed25519 you can verify. Testnet only today — audit before any real funds.</p></div>
+          <div><h4>Audit in progress</h4><p>Generated-address recovery, ERC-20 accounting, CCTP and contract paths are being tested before mainnet activation.</p></div>
         </div>
       </div>
     </div>
@@ -477,8 +483,8 @@
   <div class="wrap">
     <div class="cta-band reveal">
       <div class="inner">
-        <h2>Ready to accept private crypto payments?</h2>
-        <p>Start on testnet today — non-custodial, private, and multichain. Wire it into your platform in an afternoon. Mainnet follows a full security audit.</p>
+        <h2>Make VERSE payments practical for every merchant.</h2>
+        <p>Offer a familiar address-and-QR checkout, accept canonical USDC across three mainnets, and keep settlement under merchant control.</p>
         <div class="hero-actions" style="justify-content:center">
           <a href="gateway.html" class="btn btn-white btn-lg">Start building</a>
           <a href="#" class="btn btn-outline-w btn-lg">Talk to the team</a>
@@ -497,7 +503,7 @@
           <svg width="30" height="30" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="22" fill="none" stroke="#D7E7F9" stroke-width="3.5"/><path d="M5 28 a23 23 0 0 1 46 0" fill="none" stroke="#1E5BFF" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#1E5BFF"/></svg>
           <span class="wm">Liquid<span>Flow</span></span>
         </div>
-        <p>Private, non-custodial, multichain crypto payments for web3 platforms.</p>
+        <p>Walletless VERSE and USDC payments for merchants and communities.</p>
       </div>
       <div class="foot-col"><h5>Product</h5><a href="gateway.html">Gateway</a><a href="dashboard.html">Dashboard</a><a href="payroll.html">Payroll</a><a href="campaigns.html">Campaigns</a></div>
       <div class="foot-col"><h5>Developers</h5><a href="docs.html">Documentation</a><a href="docs-api.html">API Reference</a><a href="integrate-setup.html">Get started</a></div>
