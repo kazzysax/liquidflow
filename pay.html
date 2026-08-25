@@ -35,6 +35,7 @@
   .dot.pulse{background:currentColor;animation:pulse 1.3s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   .expiry{font-size:12px;color:var(--ink-2);text-align:center;margin-top:14px}
+  .check-btn{width:100%;margin-top:12px;border:1px solid var(--flow);background:#fff;color:var(--flow);border-radius:10px;padding:10px 13px;font-size:13px;font-weight:700;cursor:pointer}.check-btn:hover{background:#EAF1FF}.check-btn:disabled{opacity:.55;cursor:wait}
   .receipt{margin-top:14px;padding:14px;border:1px solid #B7DECf;background:#F0FAF6;border-radius:12px}.receipt-title{font-size:13px;font-weight:700;color:var(--ok-tx)}.receipt-note{font-size:11.5px;color:var(--ink-2);margin:3px 0 10px}.receipt-actions{display:flex;gap:8px;flex-wrap:wrap}.receipt-btn{border:1px solid #9ACFBC;background:#fff;color:var(--ok-tx);border-radius:8px;padding:8px 11px;font-size:11.5px;font-weight:700;cursor:pointer}.receipt-btn:hover{background:var(--ok-bg)}
   .foot{font-size:11.5px;color:var(--ink-2);text-align:center;margin-top:18px;line-height:1.5}
   .spinner{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--flow);border-radius:50%;animation:spin .8s linear infinite;margin:40px auto}
@@ -50,7 +51,7 @@
 
 <script>
   var id = new URLSearchParams(location.search).get('id');
-  var poll=null, expiryTimer=null, receiptBundle=null;
+  var poll=null, expiryTimer=null, receiptBundle=null, lastPayment=null, loading=false;
 
   function fmtAmt(base, dec){ try{ return (Number(base)/Math.pow(10, dec!=null?dec:18)).toString(); }catch(e){ return base; } }
   function short(a){ return a ? a.slice(0,12)+'…'+a.slice(-8) : ''; }
@@ -63,9 +64,17 @@
     if(p.status==='confirmed'){
       statusCls='ok'; statusDot=''; statusHtml='✅ Payment confirmed. You can return to '+esc(p.merchant_name)+'.';
     } else if(p.status==='expired'){
-      statusCls='bad'; statusDot=''; statusHtml='This payment window has expired. Please start a new payment.';
+      statusCls='bad'; statusDot=''; statusHtml='The timer ended. If you sent before it expired, use the button below for another blockchain check.';
     } else if(p.status==='cancelled'){
       statusCls='bad'; statusDot=''; statusHtml='This payment was cancelled.';
+    } else if(p.status==='checking_finality'){
+      statusCls='wait'; statusDot='<span class="dot pulse"></span>'; statusHtml='Payment detected on-chain. Waiting for network confirmations.';
+    } else if(p.status==='awaiting_topup'){
+      statusCls='wait'; statusDot='<span class="dot pulse"></span>'; statusHtml='Partial payment detected. Send the remaining amount before the timer ends.';
+    } else if(p.status==='refund_pending'){
+      statusCls='bad'; statusDot=''; statusHtml='Payment received, but the amount or timing requires refund review. Keep your payment ID.';
+    } else if(p.status==='manual_review'){
+      statusCls='bad'; statusDot=''; statusHtml='Payment received from multiple senders and requires merchant review.';
     } else {
       statusCls='wait'; statusDot='<span class="dot pulse"></span>'; statusHtml='Waiting for your payment — this confirms automatically once it lands on-chain.';
     }
@@ -83,6 +92,7 @@
         + '<button class="copy" onclick="copyAddr(\''+p.deposit_address+'\',this)">Copy</button></div>';
     }
     html += '<div class="status '+statusCls+'">'+statusDot+'<span>'+statusHtml+'</span></div>';
+    if(['awaiting_payment','awaiting_topup','checking_finality','expired'].indexOf(p.status)>=0){ html += '<button class="check-btn" id="manualCheck" onclick="manualCheck()">I’ve sent the payment — check now</button>'; }
     if(p.status==='confirmed') html += '<div class="receipt" id="receipt"><div class="receipt-title">Preparing your signed receipt…</div></div>';
     if(showPay && p.expires_at){ html += '<div class="expiry" id="expiry"></div>'; }
     html += '<div class="foot">Non-custodial — funds go straight to the merchant. Liquid Flow never holds your money. Secured by Liquid Flow.</div>';
@@ -92,7 +102,7 @@
 
     if(showPay && p.expires_at) startExpiry(p.expires_at);
     else if(expiryTimer){ clearInterval(expiryTimer); }
-    if(!showPay && poll){ clearInterval(poll); poll=null; }
+    if(['confirmed','cancelled','refund_pending','manual_review'].indexOf(p.status)>=0 && poll){ clearInterval(poll); poll=null; }
   }
 
   function startExpiry(ts){
@@ -141,22 +151,25 @@
     if(navigator.clipboard) navigator.clipboard.writeText(value); var old=el.textContent; el.textContent='Copied'; setTimeout(function(){el.textContent=old;},1200);
   }
 
-  async function load(){
+  async function load(manual){
+    if(loading) return;
+    loading=true;
     try{
-      var r=await fetch('/api/checkout/'+id);
+      var r=await fetch('/api/checkout/'+id+'?check='+(manual?'manual':'auto')+'&t='+Date.now(),{cache:'no-store'});
       if(!r.ok){ throw new Error((await r.json().catch(function(){return{};})).error || 'not found'); }
-      render(await r.json());
+      lastPayment=await r.json(); render(lastPayment);
     }catch(e){
-      document.getElementById('card').innerHTML='<div class="status bad"><span>Payment not found or no longer available.</span></div>';
-      if(poll){ clearInterval(poll); poll=null; }
-    }
+      if(lastPayment){ var s=document.querySelector('.status'); if(s){s.className='status bad';s.innerHTML='<span>Blockchain check is temporarily unavailable. Your payment details are safe; try again.</span>';} }
+      else document.getElementById('card').innerHTML='<div class="status bad"><span>Payment could not be loaded. Please retry.</span></div><button class="check-btn" onclick="load(true)">Retry</button>';
+    } finally { loading=false; }
   }
+  async function manualCheck(){var b=document.getElementById('manualCheck');if(b){b.disabled=true;b.textContent='Checking the blockchain…';}await load(true);}
 
   if(!id){
     document.getElementById('card').innerHTML='<div class="status bad"><span>Missing payment id.</span></div>';
   } else {
     load();
-    poll=setInterval(load, 4000); // live status until confirmed/expired
+    poll=setInterval(function(){load(false);}, 3000); // live status until a final outcome
   }
 </script>
 </body>

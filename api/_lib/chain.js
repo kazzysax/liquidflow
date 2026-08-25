@@ -48,7 +48,10 @@ for (const c of Object.keys(RPC_ENV)) { try { RPC[c] = rpcUrl(c); } catch { RPC[
 // a shallow reorg can no longer reverse an already-"confirmed" payment. Mainnet
 // values are deliberately higher than testnet.
 const CONFIRMATIONS = {
-  'eip155:84532': 3, 'eip155:8453': 30, 'eip155:137': 128, 'eip155:5042002': 3, 'eip155:11155111': 3, 'eip155:1': 24,
+  // Operational mainnet depths: fast enough for checkout while still requiring
+  // several buried blocks. A transfer is detected at the chain tip first and is
+  // only marked confirmed once it reaches the depth below.
+  'eip155:84532': 3, 'eip155:8453': 10, 'eip155:137': 32, 'eip155:5042002': 3, 'eip155:11155111': 3, 'eip155:1': 3,
   'solana': 1, 'sui': 1,
 };
 const confDepth = (c) => (CONFIRMATIONS[c] != null ? CONFIRMATIONS[c] : 3);
@@ -138,6 +141,9 @@ async function rpc(chain, method, params = []) {
 
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const ACTIVE_PAYMENT_STATUSES = new Set(['awaiting_payment', 'awaiting_topup', 'checking_finality']);
+// An expired checkout may still have a transfer mined before its deadline that
+// was not final when the timer ended. Explicit rechecks can recover it.
+const RECHECKABLE_PAYMENT_STATUSES = new Set([...ACTIVE_PAYMENT_STATUSES, 'expired']);
 const FINALITY_GRACE_MS = CHECKOUT_TTL_MS;
 
 async function currentBlock(chain) {
@@ -167,6 +173,16 @@ async function tokenTransfersTo(payment) {
     logIndex: log.logIndex, blockNumber: BigInt(log.blockNumber).toString(),
     blockTimestamp: blocks.get(log.blockNumber), from: '0x' + String(log.topics[1]).slice(-40),
     amount: BigInt(log.data).toString() }));
+}
+
+async function unfinalizedTransferSeen(payment) {
+  const cfg = assetConfig(payment.chain, payment.asset);
+  if (!cfg || payment.startBlock == null) return false;
+  const recipient = '0x' + String(payment.depositAddress).slice(2).toLowerCase().padStart(64, '0');
+  const logs = await rpc(payment.chain, 'eth_getLogs', [{ address: cfg.contract,
+    fromBlock: '0x' + BigInt(payment.startBlock).toString(16), toBlock: 'latest',
+    topics: [TRANSFER_TOPIC, null, recipient] }]);
+  return Array.isArray(logs) && logs.length > 0;
 }
 
 function classifyTransfers(payment, transfers, now = Date.now()) {
@@ -241,7 +257,7 @@ async function confirmedBalance(chain, address, asset) {
 // Check one payment on-chain; confirm it if funded, expire it if past its window.
 // Returns the (possibly mutated) payment. Safe to call on any status.
 async function checkAndConfirm(payment) {
-  if (!payment || !ACTIVE_PAYMENT_STATUSES.has(payment.status)) return payment;
+  if (!payment || !RECHECKABLE_PAYMENT_STATUSES.has(payment.status)) return payment;
   const previousStatus = payment.status;
 
   // Cancel legacy subscription invoices without collecting funds.
@@ -260,6 +276,9 @@ async function checkAndConfirm(payment) {
   try {
     const transfers = await tokenTransfersTo(payment);
     const result = classifyTransfers(payment, transfers);
+    if (result.status === 'awaiting_payment' && await unfinalizedTransferSeen(payment)) {
+      result.status = 'checking_finality';
+    }
     payment.transfers = transfers;
     payment.receivedAmount = result.received.toString();
     payment.payerAddress = result.sender;
@@ -294,4 +313,4 @@ async function checkAndConfirm(payment) {
   return payment;
 }
 
-module.exports = { CHECKOUT_TTL_MS, RPC, CONFIRMATIONS, ASSETS, DECIMALS, SYMBOL, ACTIVE_PAYMENT_STATUSES, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetConfig, assetsForChain, assetForChain, assetOk, rpc, rpcUrl, currentBlock, ethBalance, tokenBalance, nativeBalance, confirmedBalance, tokenTransfersTo, classifyTransfers, checkAndConfirm };
+module.exports = { CHECKOUT_TTL_MS, RPC, CONFIRMATIONS, ASSETS, DECIMALS, SYMBOL, ACTIVE_PAYMENT_STATUSES, RECHECKABLE_PAYMENT_STATUSES, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetConfig, assetsForChain, assetForChain, assetOk, rpc, rpcUrl, currentBlock, ethBalance, tokenBalance, nativeBalance, confirmedBalance, tokenTransfersTo, classifyTransfers, checkAndConfirm };

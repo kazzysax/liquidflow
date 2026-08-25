@@ -27,6 +27,13 @@ test('canonical USDC contracts match Circle mainnet addresses', () => {
   assert.equal(chain.assetConfig('eip155:8453', 'USDC').contract, '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913');
 });
 
+test('checkout confirmation depths are bounded for responsive mainnet checkout', () => {
+  assert.equal(chain.CONFIRMATIONS['eip155:1'], 3);
+  assert.equal(chain.CONFIRMATIONS['eip155:137'], 32);
+  assert.equal(chain.CONFIRMATIONS['eip155:8453'], 10);
+  assert.equal(chain.RECHECKABLE_PAYMENT_STATUSES.has('expired'), true);
+});
+
 test('CCTP burn plan pins mainnet contracts, destination and amount', () => {
   const recipient = '0x1111111111111111111111111111111111111111';
   const plan = cctp.buildBurnPlan({ from: 'eip155:1', to: 'eip155:8453', amount: '1000000', recipient });
