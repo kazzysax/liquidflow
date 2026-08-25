@@ -132,12 +132,13 @@
       <!-- STEP 2: settlement + DEX + unify -->
       <div class="panel" data-panel="1">
         <h1>How should funds settle?</h1>
-        <div class="sub">Choose what you want to keep, and whether to unify everything into it.</div>
+        <div class="sub">Keep each payment exactly as sent, or choose a preferred settlement asset.</div>
 
         <div class="field">
           <label>Settlement currency</label>
           <div class="hint">The asset you want to hold after payments arrive.</div>
-          <select id="settleCur">
+          <select id="settleCur" onchange="syncSettlementChoice()">
+            <option value="AS_RECEIVED">Keep assets as received — no conversion</option>
             <option value="USDC">USDC — USD stablecoin (recommended)</option>
             <option value="VERSE">VERSE — Verse ecosystem token</option>
             <option value="FXVERSE">fxVERSE — Verse on Polygon</option>
@@ -231,7 +232,7 @@
 
 <script>
   let step=0; const TOTAL=5;
-  const cfg={ chains:['eip155:1','eip155:137','eip155:8453'], settle:'USDC', unify:false, dex:'Disabled pending audit', mode:'stealth', payout:'', webhook:'' };
+  const cfg={ chains:['eip155:1','eip155:137','eip155:8453'], settle:'AS_RECEIVED', unify:false, dex:'Disabled pending audit', mode:'stealth', payout:'', webhook:'' };
 
   // multi-select grids
   function bindGrid(id, key){
@@ -251,12 +252,24 @@
   });
 
   function toggleSwitch(el){
+    if(document.getElementById('settleCur').value==='AS_RECEIVED') return;
     const cur=el.getAttribute('aria-pressed')==='true';
     el.setAttribute('aria-pressed',String(!cur));
     cfg.unify=!cur;
     document.getElementById('dexField').style.opacity=cfg.unify?'1':'.4';
     document.getElementById('dexField').style.pointerEvents=cfg.unify?'auto':'none';
     document.getElementById('unifyWarn').style.display=cfg.unify?'flex':'none';
+  }
+
+  function syncSettlementChoice(){
+    cfg.settle=document.getElementById('settleCur').value;
+    if(cfg.settle==='AS_RECEIVED'){
+      cfg.unify=false;
+      document.getElementById('unifySwitch').setAttribute('aria-pressed','false');
+      document.getElementById('dexField').style.opacity='.4';
+      document.getElementById('dexField').style.pointerEvents='none';
+      document.getElementById('unifyWarn').style.display='none';
+    }
   }
 
   function pickMode(el){

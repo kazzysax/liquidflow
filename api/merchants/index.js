@@ -40,7 +40,7 @@ module.exports = async function handler(req, res) {
       name:        m.name || 'Merchant',
       mode:        m.mode,
       chains:      m.chains || [],
-      settle:      m.settle || 'USDC',
+      settle:      m.settle || 'AS_RECEIVED',
       payout:      m.payout || '',
       webhook_url: m.webhookUrl || '',
       webhook_secret: m.webhookSecret,
@@ -55,8 +55,8 @@ module.exports = async function handler(req, res) {
   const {
     name     = '',
     chains   = [],
-    settle   = 'USDC',
-    unify    = true,
+    settle   = 'AS_RECEIVED',
+    unify    = false,
     dex      = 'NEAR Intents',
     mode     = 'instant',
     payout   = '',
@@ -88,8 +88,11 @@ module.exports = async function handler(req, res) {
   if (mode !== 'instant' && mode !== 'stealth') {
     return res.status(400).json({ error: 'mode must be instant or stealth' });
   }
-  if (!['USDC', 'VERSE', 'FXVERSE'].includes(String(settle || '').toUpperCase())) {
-    return res.status(400).json({ error: 'settle must be USDC, VERSE or fxVERSE' });
+  if (!['AS_RECEIVED', 'USDC', 'VERSE', 'FXVERSE'].includes(String(settle || '').toUpperCase())) {
+    return res.status(400).json({ error: 'settle must be AS_RECEIVED, USDC, VERSE or fxVERSE' });
+  }
+  if (String(settle).toUpperCase() === 'AS_RECEIVED' && unify === true) {
+    return res.status(400).json({ error: 'AS_RECEIVED settlement cannot enable liquidity unification' });
   }
   // Instant (non-stealth) mode sends funds straight to `payout`, so it must be a real
   // EVM address. Stealth mode derives per-payment addresses and needs no payout here.
