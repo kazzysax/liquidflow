@@ -17,6 +17,12 @@ test('underpayment waits for a top-up before expiry', () => {
   assert.equal(result.status, 'awaiting_topup');
 });
 
+test('fresh unfunded invoice remains awaiting payment', () => {
+  const result = classifyTransfers(payment, [], 5_000);
+  assert.equal(result.status, 'awaiting_payment');
+  assert.equal(result.received, 0n);
+});
+
 test('overpayment records only the excess for refund', () => {
   const result = classifyTransfers(payment, [tx('a', '130')], 5_000);
   assert.equal(result.status, 'refund_pending');

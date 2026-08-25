@@ -180,6 +180,7 @@ function classifyTransfers(payment, transfers, now = Date.now()) {
   if (timelyReceived === need && received === need) return { status: 'confirmed', received, sender: senders[0] || null, refund: null };
   if (timelyReceived >= need) return { status: 'refund_pending', received, sender: senders[0], refund: received - need };
   if (received > 0n && (payment.expiresAt == null || now < payment.expiresAt)) return { status: 'awaiting_topup', received, sender: senders[0], refund: null };
+  if (received === 0n && (payment.expiresAt == null || now < payment.expiresAt)) return { status: 'awaiting_payment', received, sender: null, refund: null };
   if (payment.expiresAt != null && now < payment.expiresAt + FINALITY_GRACE_MS) return { status: 'checking_finality', received, sender: senders[0] || null, refund: null };
   if (received > 0n) return { status: 'refund_pending', received, sender: senders[0], refund: received };
   return { status: payment.expiresAt == null ? 'awaiting_payment' : 'expired', received, sender: null, refund: null };
