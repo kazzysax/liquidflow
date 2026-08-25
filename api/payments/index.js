@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const store  = require('../_lib/store');
 const { deriveDepositAddress } = require('../_lib/crypto');
 const ed = require('../_lib/stealth_ed25519');
+const { trackVerseEvent } = require('../_lib/verse-analytics');
 const { CHECKOUT_TTL_MS, ACTIVE_PAYMENT_STATUSES, checkAndConfirm, currentBlock, assetConfig, assetsForChain, assetOk, isValidBaseAmount, confirmedBalance, chainSupported, chainDisabledReason } = require('../_lib/chain');
 
 // Derive a stealth deposit address for the given chain from a recipient's meta-keys.
@@ -191,6 +192,12 @@ module.exports = async function handler(req, res) {
   await store.set(`payment:${paymentId}`, payment);
   await store.sadd('payments:pending', paymentId);
   await store.sadd(`merchant:${key}:payments`, paymentId);
+
+  await trackVerseEvent('Payment Created', {
+    asset: payment.asset,
+    chain: payment.chain,
+    privacy_mode: payment.mode,
+  });
 
   return res.status(201).json(publicView(payment));
 };

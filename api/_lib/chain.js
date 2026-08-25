@@ -3,6 +3,7 @@
 // within seconds instead of waiting for the daily cron.
 const store = require('./store');
 const { confirmPayment } = require('./confirm');
+const { trackVerseEvent } = require('./verse-analytics');
 
 // One authoritative customer-payment window shared by checkout and donations.
 const CHECKOUT_TTL_MS = 10 * 60 * 1000;
@@ -240,6 +241,7 @@ async function confirmedBalance(chain, address, asset) {
 // Returns the (possibly mutated) payment. Safe to call on any status.
 async function checkAndConfirm(payment) {
   if (!payment || !ACTIVE_PAYMENT_STATUSES.has(payment.status)) return payment;
+  const previousStatus = payment.status;
 
   // A malformed/zero/negative amount must never confirm. Guard here too so a bad
   // record that slipped past creation validation can't confirm against `bal >= 0`.
@@ -262,6 +264,19 @@ async function checkAndConfirm(payment) {
       }
       await store.set(`payment:${payment.id}`, payment);
       if (!ACTIVE_PAYMENT_STATUSES.has(payment.status)) await store.srem('payments:pending', payment.id);
+      if (payment.status !== previousStatus) {
+        const eventName = {
+          awaiting_topup: 'Payment Underpaid',
+          refund_pending: 'Payment Refund Pending',
+          manual_review: 'Payment Manual Review',
+          expired: 'Payment Expired',
+        }[payment.status] || 'Payment Status Changed';
+        await trackVerseEvent(eventName, {
+          asset: payment.asset,
+          chain: payment.chain,
+          status: payment.status,
+        });
+      }
     }
   } catch (e) {
     // unsupported chain or RPC hiccup — leave pending; next poll/cron retries

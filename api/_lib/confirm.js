@@ -2,6 +2,7 @@
 // test simulate endpoint. Works for merchant payments AND fundraiser donations.
 const store   = require('./store');
 const webhook = require('./webhook');
+const { trackVerseEvent } = require('./verse-analytics');
 
 async function confirmPayment(payment, confirmations) {
   // Distributed concurrency guard: on-demand polling and the cron watcher can run
@@ -35,6 +36,10 @@ async function confirmPayment(payment, confirmations) {
       m.activatedAt = Date.now();
       await store.set(`merchant:${payment.apiKey}`, m);
     }
+    await trackVerseEvent('Merchant Activated', {
+      asset: payment.asset,
+      chain: payment.chain,
+    });
     if (m && m.webhookUrl) {
       await webhook.send(m.webhookUrl, m.webhookSecret, {
         type:          'merchant.activated',
@@ -50,6 +55,12 @@ async function confirmPayment(payment, confirmations) {
     }
     return false;
   }
+
+  await trackVerseEvent('Payment Confirmed', {
+    asset: payment.asset,
+    chain: payment.chain,
+    privacy_mode: payment.mode,
+  });
 
   let webhookSent = false;
   if (payment.apiKey) {

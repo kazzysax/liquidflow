@@ -2,6 +2,14 @@
    Injects a bold floating button (lower-right) + dark-mode color overrides.
    Include once per page:  <script src="theme-toggle.js" defer></script>            */
 (function () {
+  // Every LiquidFlow surface that uses the shared theme also loads Verse App Analytics.
+  if (!document.querySelector('script[src="/verse-analytics.js"],script[src="verse-analytics.js"]')) {
+    var analyticsScript = document.createElement('script');
+    analyticsScript.src = '/verse-analytics.js';
+    analyticsScript.defer = true;
+    document.head.appendChild(analyticsScript);
+  }
+
   var KEY = 'lf-theme';
   var root = document.documentElement;
 
