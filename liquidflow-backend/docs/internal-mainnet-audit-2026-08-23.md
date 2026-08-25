@@ -84,11 +84,15 @@ CCTP quote, attestation, and relay primitives exist, but there is no audited sta
 machine connecting a confirmed payment to merchant-selected settlement, retries,
 receipt state, or failure recovery. CCTP relay must remain opt-in and gas-capped.
 
-### LF-A11 — VERSE DEX route is not implemented (High)
+### LF-A11 — Merchant-signed DEX route implemented (Mitigated; external review pending)
 
-No approved router allowlist, minimum-output calculation, slippage ceiling, deadline,
-or liquidity/oracle protection exists. Do not advertise automatic VERSE conversion
-until an official route is pinned and adversarially tested.
+Ethereum pins Bitcoin.com's official Verse DEX router/factory and canonical VERSE/USDC.
+Polygon pins the verified QuickSwap router/factory and canonical fxVERSE/USDC, using
+the live WMATIC path when it is safest. Quotes enforce exact approvals, minimum output,
+0.1–3% slippage, a 5% cumulative impact ceiling, a 10% reserve-share ceiling, runtime
+router identity checks and a ten-minute deadline. LiquidFlow never signs or relays a
+swap. This is merchant-initiated unification, not automatic settlement; external review
+and a small-value mainnet rehearsal remain required before unattended automation.
 
 ### LF-A12 — Webhook DNS rebinding remains possible (Medium)
 

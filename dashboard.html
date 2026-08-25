@@ -73,6 +73,7 @@
   .fg label{font-size:12px;font-weight:500;display:block;margin-bottom:6px}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .secretbox{margin-top:14px;background:var(--cloud);border:1px dashed #C2CCDD;border-radius:10px;padding:11px;font-family:var(--mono);font-size:10.5px;word-break:break-all;color:var(--ink-2)}
+  .dex-card{margin-top:18px}.dex-head{display:flex;justify-content:space-between;align-items:start;gap:18px;margin-bottom:16px}.dex-head h2{margin-bottom:4px}.dex-head p{font-size:12px;color:var(--ink-2);max-width:660px}.dex-form{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr .8fr;gap:10px;align-items:end}.dex-actions{display:flex;gap:9px;margin-top:12px;flex-wrap:wrap}.dex-result{display:none;margin-top:14px;padding:13px 15px;border:1px solid var(--line);border-radius:11px;background:var(--cloud);font-size:12px}.dex-result.show{display:block}.dex-result b{color:var(--ink)}.dex-status{font-size:12px;color:var(--ink-2);margin-top:10px}.dex-status.ok{color:var(--ok-tx)}.dex-status.bad{color:#A32D2D}@media(max-width:900px){.dex-form{grid-template-columns:1fr 1fr}}@media(max-width:520px){.dex-form{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -155,10 +156,24 @@
         <div class="secretbox" id="secretBox" style="display:none"></div>
       </div>
     </div>
+
+    <div class="card dex-card">
+      <div class="dex-head"><div><h2>Liquidity unification</h2><p>Convert VERSE or fxVERSE into same-chain USDC using allowlisted mainnet routers. LiquidFlow builds the protected route; your merchant wallet reviews and signs every transaction.</p></div><button class="btn btn-ghost btn-sm" id="dexConnect" onclick="connectDexWallet()">Connect merchant wallet</button></div>
+      <div class="dex-form">
+        <div class="fg"><label>Network</label><select class="lf-input" id="dexChain" onchange="syncDexAssets()" style="font-family:var(--body)"><option value="eip155:1">Ethereum · Verse DEX</option><option value="eip155:137">Polygon · QuickSwap</option></select></div>
+        <div class="fg"><label>From</label><select class="lf-input" id="dexFrom" onchange="syncDexTo()" style="font-family:var(--body)"></select></div>
+        <div class="fg"><label>To</label><select class="lf-input" id="dexTo" style="font-family:var(--body)"></select></div>
+        <div class="fg"><label>Amount</label><input class="lf-input" id="dexAmount" value="1" inputmode="decimal" style="font-family:var(--body)"></div>
+        <div class="fg"><label>Slippage</label><select class="lf-input" id="dexSlippage" style="font-family:var(--body)"><option value="50">0.5%</option><option value="100">1.0%</option><option value="200">2.0%</option><option value="300">3.0%</option></select></div>
+      </div>
+      <div class="dex-actions"><button class="btn" id="dexQuoteBtn" onclick="getDexQuote()">Get protected quote</button><button class="btn btn-ghost" id="dexExecuteBtn" onclick="executeDexPlan()" disabled>Review &amp; sign swap</button></div>
+      <div class="dex-status" id="dexStatus">Connect the wallet that holds the assets. Stealth-mode merchants should sweep confirmed deposits to that wallet first.</div>
+      <div class="dex-result" id="dexResult"></div>
+    </div>
   </div>
 
 <script>
-  var KEY=null, timer=null;
+  var KEY=null, timer=null, DEX_ACCOUNT=null, DEX_PLAN=null;
   var PAYMENT_ASSETS={
     'eip155:1':[{value:'VERSE',symbol:'VERSE',decimals:18},{value:'USDC',symbol:'USDC',decimals:6}],
     'eip155:137':[{value:'fxVERSE',symbol:'fxVERSE',decimals:18},{value:'USDC',symbol:'USDC',decimals:6}],
@@ -250,6 +265,22 @@
 
   function copy(t){ if(navigator.clipboard) navigator.clipboard.writeText(t).catch(function(){}); }
 
+  var DEX_ASSETS={
+    'eip155:1':[{value:'VERSE',symbol:'VERSE',decimals:18},{value:'USDC',symbol:'USDC',decimals:6}],
+    'eip155:137':[{value:'FXVERSE',symbol:'fxVERSE',decimals:18},{value:'USDC',symbol:'USDC',decimals:6}]
+  };
+  function syncDexAssets(){var chain=document.getElementById('dexChain').value,from=document.getElementById('dexFrom');from.innerHTML=DEX_ASSETS[chain].map(function(a){return '<option value="'+a.value+'">'+a.symbol+'</option>'}).join('');syncDexTo();DEX_PLAN=null;document.getElementById('dexExecuteBtn').disabled=true;}
+  function syncDexTo(){var chain=document.getElementById('dexChain').value,from=document.getElementById('dexFrom').value,to=document.getElementById('dexTo');to.innerHTML=DEX_ASSETS[chain].filter(function(a){return a.value!==from}).map(function(a){return '<option value="'+a.value+'">'+a.symbol+'</option>'}).join('');DEX_PLAN=null;document.getElementById('dexExecuteBtn').disabled=true;}
+  function dexAsset(chain,value){return DEX_ASSETS[chain].find(function(a){return a.value===value})}
+  function decimalBase(value,decimals){var p=String(value||'').trim().split('.');if(p.length>2||!/^\d+$/.test(p[0]||'')||(p[1]&&!/^\d+$/.test(p[1]))||((p[1]||'').length>decimals))throw new Error('enter a valid amount');var n=BigInt(p[0]||'0')*10n**BigInt(decimals)+BigInt(((p[1]||'')+'0'.repeat(decimals)).slice(0,decimals)||'0');if(n<=0n)throw new Error('amount must be positive');return n.toString()}
+  function humanBase(value,decimals){var s=String(value||'0').padStart(decimals+1,'0'),whole=s.slice(0,-decimals)||'0',frac=s.slice(-decimals).replace(/0+$/,'');return whole+(frac?'.'+frac:'')}
+  function setDexStatus(message,kind){var el=document.getElementById('dexStatus');el.textContent=message;el.className='dex-status '+(kind||'');}
+  async function connectDexWallet(){if(!window.ethereum){setDexStatus('Open this dashboard in Bitcoin.com Wallet or install an EVM wallet extension.','bad');return}try{var accounts=await window.ethereum.request({method:'eth_requestAccounts'});DEX_ACCOUNT=accounts[0];document.getElementById('dexConnect').textContent=short(DEX_ACCOUNT);setDexStatus('Merchant wallet connected. Request a protected route when ready.','ok')}catch(e){setDexStatus(e.message||'Wallet connection was rejected.','bad')}}
+  async function ensureDexChain(chain){var wanted=chain==='eip155:1'?'0x1':'0x89',current=await window.ethereum.request({method:'eth_chainId'});if(current.toLowerCase()!==wanted)await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:wanted}]});}
+  async function getDexQuote(){var btn=document.getElementById('dexQuoteBtn');btn.disabled=true;DEX_PLAN=null;document.getElementById('dexExecuteBtn').disabled=true;try{if(!DEX_ACCOUNT)await connectDexWallet();if(!DEX_ACCOUNT)throw new Error('connect your merchant wallet');var chain=document.getElementById('dexChain').value,from=document.getElementById('dexFrom').value,to=document.getElementById('dexTo').value,input=dexAsset(chain,from),output=dexAsset(chain,to);await ensureDexChain(chain);setDexStatus('Reading live pools and checking route safety…');var body={chain:chain,from:from,to:to,amount:decimalBase(document.getElementById('dexAmount').value,input.decimals),recipient:DEX_ACCOUNT,slippage_bps:Number(document.getElementById('dexSlippage').value)};var r=await fetch('/api/dex/quote',{method:'POST',headers:authHdr(),body:JSON.stringify(body)}),data=await r.json();if(!r.ok)throw new Error(data.error||'no safe route available');DEX_PLAN=data;var quoted=humanBase(data.output.quoted_amount,output.decimals),minimum=humanBase(data.output.minimum_amount,output.decimals);document.getElementById('dexResult').className='dex-result show';document.getElementById('dexResult').innerHTML='<b>'+data.input.symbol+' → '+data.output.symbol+'</b> via '+data.provider+'<br>Quote: '+quoted+' '+data.output.symbol+' · Minimum: '+minimum+' '+data.output.symbol+' · Price impact: '+(data.price_impact_bps/100).toFixed(2)+'%<br>Approval: exact amount only · Deadline: 10 minutes · '+data.steps.length+' wallet transaction'+(data.steps.length===1?'':'s');document.getElementById('dexExecuteBtn').disabled=false;setDexStatus('Protected quote ready. Review the values, then sign in your wallet.','ok')}catch(e){setDexStatus(e.message||'Could not build a safe route.','bad')}finally{btn.disabled=false}}
+  async function waitDexReceipt(hash){for(var i=0;i<90;i++){var receipt=await window.ethereum.request({method:'eth_getTransactionReceipt',params:[hash]});if(receipt){if(receipt.status==='0x0')throw new Error('transaction reverted');return receipt}await new Promise(function(resolve){setTimeout(resolve,4000)})}throw new Error('transaction confirmation timed out')}
+  async function executeDexPlan(){var btn=document.getElementById('dexExecuteBtn');btn.disabled=true;try{if(!DEX_PLAN||!DEX_ACCOUNT)throw new Error('request a fresh quote first');if(Math.floor(Date.now()/1000)>=DEX_PLAN.deadline)throw new Error('quote expired; request a new quote');await ensureDexChain(DEX_PLAN.chain);for(var i=0;i<DEX_PLAN.steps.length;i++){var step=DEX_PLAN.steps[i];setDexStatus('Wallet action '+(i+1)+' of '+DEX_PLAN.steps.length+': '+step.label+'…');var hash=await window.ethereum.request({method:'eth_sendTransaction',params:[{from:DEX_ACCOUNT,to:step.to,data:step.data,value:'0x0'}]});await waitDexReceipt(hash)}setDexStatus('Swap confirmed on-chain. Liquidity unification completed.','ok');DEX_PLAN=null;document.getElementById('dexResult').className='dex-result'}catch(e){setDexStatus(e.message||'Swap was not completed.','bad')}finally{btn.disabled=!DEX_PLAN}}
+
   async function createPayment(){
     var btn=document.getElementById('createBtn'); btn.disabled=true; btn.textContent='Creating…';
     try{
@@ -286,6 +317,7 @@
   })();
   document.getElementById('keyInput').addEventListener('keydown',function(e){ if(e.key==='Enter') login(); });
   syncAsset();
+  syncDexAssets();
 </script>
 </body>
 </html>

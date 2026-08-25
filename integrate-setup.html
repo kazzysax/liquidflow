@@ -149,22 +149,22 @@
           <label>Liquidity unification</label>
           <div class="toggle-row">
             <div>
-              <div class="t">Liquidity unification (coming after route audit)</div>
-              <div class="d">For this submission, funds remain in the verified asset received. Automated swaps stay disabled.</div>
+              <div class="t">Merchant-signed liquidity unification</div>
+              <div class="d">Convert VERSE or fxVERSE to same-chain USDC using a protected route that your merchant wallet signs.</div>
             </div>
             <button class="switch" id="unifySwitch" aria-pressed="false" onclick="toggleSwitch(this)"></button>
           </div>
           <div class="warn-note" id="unifyWarn" style="display:none">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-            <span>Automated DEX routing is not enabled in the audited submission engine.</span>
+            <span>LiquidFlow never signs or holds swap keys. In private mode, sweep the confirmed deposit first, then approve the protected route from your merchant wallet.</span>
           </div>
         </div>
 
         <div class="field" id="dexField" style="opacity:.4;pointer-events:none">
           <label>Swap &amp; settlement provider</label>
-          <div class="hint">A router will be selected only after route, slippage and oracle protections are audited.</div>
+          <div class="hint">Ethereum uses the official Verse DEX router. Polygon uses QuickSwap via its deepest approved fxVERSE route.</div>
           <div class="grid" id="dexGrid">
-            <button class="opt" aria-pressed="true" data-v="Disabled pending audit"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">Disabled<span class="meta">Pending independent route audit</span></span></button>
+            <button class="opt" aria-pressed="true" data-v="LIQUIDFLOW_APPROVED_ROUTES"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span><span class="nm">LiquidFlow approved routes<span class="meta">Exact approval · impact cap · minimum output · 10-minute deadline</span></span></button>
           </div>
         </div>
       </div>
@@ -262,6 +262,7 @@
     const cur=el.getAttribute('aria-pressed')==='true';
     el.setAttribute('aria-pressed',String(!cur));
     cfg.unify=!cur;
+    cfg.dex=cfg.unify?'LIQUIDFLOW_APPROVED_ROUTES':null;
     document.getElementById('dexField').style.opacity=cfg.unify?'1':'.4';
     document.getElementById('dexField').style.pointerEvents=cfg.unify?'auto':'none';
     document.getElementById('unifyWarn').style.display=cfg.unify?'flex':'none';
@@ -313,6 +314,7 @@
   function validateStep(){
     if(step===0 && !cfg.chains.length){ alert('Select at least one supported mainnet.'); return false; }
     if(step===1 && !document.getElementById('settleCur').value){ alert('Choose a settlement policy.'); return false; }
+    if(step===1 && cfg.unify && cfg.dex!=='LIQUIDFLOW_APPROVED_ROUTES'){ alert('Choose the approved DEX route provider.'); return false; }
     if(step===2 && !cfg.mode){ alert('Choose a deposit address mode.'); return false; }
     if(step===3){
       const name=document.getElementById('merchantName').value.trim();

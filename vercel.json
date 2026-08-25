@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/dex/quote",
+      "destination": "/api/receipt?action=dex-quote"
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/watch",

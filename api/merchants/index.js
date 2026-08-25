@@ -94,8 +94,8 @@ module.exports = async function handler(req, res) {
   }
 
   const normalizedDex = unify ? String(dex || '').trim() : null;
-  if (unify && !normalizedDex) {
-    return res.status(400).json({ error: 'dex is required when liquidity unification is enabled' });
+  if (unify && normalizedDex !== 'LIQUIDFLOW_APPROVED_ROUTES') {
+    return res.status(400).json({ error: 'liquidity unification requires the LiquidFlow approved route provider' });
   }
 
   const merchantId    = 'm_' + crypto.randomBytes(8).toString('hex');

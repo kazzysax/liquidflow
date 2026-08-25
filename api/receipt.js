@@ -1,11 +1,12 @@
 const store = require('./_lib/store');
 const { checkAndConfirm } = require('./_lib/chain');
 const receipts = require('./_lib/receipt');
+const verseDex = require('./_lib/verse-dex');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 async function merchantNameFor(payment) {
@@ -52,6 +53,18 @@ module.exports = async function handler(req, res) {
     catch { return res.status(200).json({ valid: false, signature_valid: true, record_matches: false }); }
     const recordMatches = receipts.canonical(expected).equals(receipts.canonical(bundle.receipt));
     return res.status(200).json({ valid: recordMatches, signature_valid: true, record_matches: recordMatches });
+  }
+
+  if (action === 'dex-quote' && req.method === 'POST') {
+    const apiKey = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    const merchant = await store.get(`merchant:${apiKey}`);
+    if (!merchant) return res.status(401).json({ error: 'invalid api key' });
+    const requestedChain = String(req.body && req.body.chain || '');
+    if (!Array.isArray(merchant.chains) || !merchant.chains.includes(requestedChain)) {
+      return res.status(403).json({ error: 'this network is not enabled for the merchant' });
+    }
+    try { return res.status(200).json(await verseDex.quote(req.body || {})); }
+    catch (error) { return res.status(400).json({ error: error.message }); }
   }
 
   return res.status(405).json({ error: 'method not allowed' });

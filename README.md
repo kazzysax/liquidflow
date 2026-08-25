@@ -18,7 +18,8 @@ Every build step must preserve this.
 
 | Path | What |
 |------|------|
-| `api/` | **Live serverless API (Vercel).** Payments, merchants, fundraisers, payroll, the deposit-watcher cron, the stealth recovery endpoint, and Arc cross-chain swaps (CCTP). |
+| `api/` | **Live serverless API (Vercel).** Payments, merchants, fundraisers, payroll, receipts, the deposit watcher, stealth recovery, and merchant-signed DEX route building. |
+| `api/_lib/verse-dex.js` | Allowlisted mainnet liquidity routing: Verse DEX for Ethereum VERSE/USDC and QuickSwap for Polygon fxVERSE/USDC, with exact approvals, minimum output, reserve/impact limits, and wallet-signed execution. |
 | `api/swap/` | **Cross-chain USDC via Circle CCTP** — move USDC in/out of Arc. `POST /api/swap/quote` (returns the approve+burn txs to sign — non-custodial), `GET /api/swap/status` (attestation), `POST /api/swap/relay-mint` (optional LF-relayed mint). |
 | `api/_lib/` | Core libs: chain reads + confirmation, stealth crypto, KV store, webhooks, payroll keeper. |
 | `tools/` | Operator/merchant tooling — e.g. the offline EVM stealth **sweep tool** (keys never leave the merchant's machine). |

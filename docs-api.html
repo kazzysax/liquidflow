@@ -104,6 +104,20 @@
     <h3><span class="m post">POST</span> /api/simulate/:id</h3>
     <p>Internal development helper only. It is disabled in production and requires both <code>ALLOW_TEST_CONFIRM=1</code> and the server-side test secret. A merchant API key cannot simulate confirmation.</p>
 
+    <h2>Liquidity unification</h2>
+    <h3><span class="m post">POST</span> /api/dex/quote</h3>
+    <p>Authenticated. Builds a merchant-signed same-chain swap plan. Ethereum VERSE/USDC routes through the official Verse DEX router; Polygon fxVERSE/USDC routes through the approved QuickSwap router. LiquidFlow never signs or relays the swap.</p>
+    <pre><code>curl -X POST https://liquidflow-io.vercel.app/api/dex/quote \
+  -H "Authorization: Bearer lf_live_…" \
+  -H "Content-Type: application/json" -d '{
+  "chain":"eip155:1", "from":"VERSE", "to":"USDC",
+  "amount":"1000000000000000000", "recipient":"0x…",
+  "slippage_bps":50
+}'
+# Returns an exact approval (if needed), protected swap calldata,
+# minimum output, price impact, allowlisted path and 10-minute deadline.</code></pre>
+    <p>Safety limits: slippage 0.1–3%, cumulative pool impact ≤5%, trade size ≤10% of each reserve, canonical tokens only, and runtime router/factory identity checks.</p>
+
     <h2>Fundraisers (Potlock)</h2>
     <h3><span class="m post">POST</span> /api/fundraisers</h3>
     <p>Create a private fundraising campaign with its own stealth keypair. Returns a shareable URL and the sweep key (once).</p>
