@@ -35,6 +35,7 @@
   .dot.pulse{background:currentColor;animation:pulse 1.3s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   .expiry{font-size:12px;color:var(--ink-2);text-align:center;margin-top:14px}
+  .receipt{margin-top:14px;padding:14px;border:1px solid #B7DECf;background:#F0FAF6;border-radius:12px}.receipt-title{font-size:13px;font-weight:700;color:var(--ok-tx)}.receipt-note{font-size:11.5px;color:var(--ink-2);margin:3px 0 10px}.receipt-actions{display:flex;gap:8px;flex-wrap:wrap}.receipt-btn{border:1px solid #9ACFBC;background:#fff;color:var(--ok-tx);border-radius:8px;padding:8px 11px;font-size:11.5px;font-weight:700;cursor:pointer}.receipt-btn:hover{background:var(--ok-bg)}
   .foot{font-size:11.5px;color:var(--ink-2);text-align:center;margin-top:18px;line-height:1.5}
   .spinner{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--flow);border-radius:50%;animation:spin .8s linear infinite;margin:40px auto}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -49,7 +50,7 @@
 
 <script>
   var id = new URLSearchParams(location.search).get('id');
-  var poll=null, expiryTimer=null;
+  var poll=null, expiryTimer=null, receiptBundle=null;
 
   function fmtAmt(base, dec){ try{ return (Number(base)/Math.pow(10, dec!=null?dec:18)).toString(); }catch(e){ return base; } }
   function short(a){ return a ? a.slice(0,12)+'…'+a.slice(-8) : ''; }
@@ -82,9 +83,12 @@
         + '<button class="copy" onclick="copyAddr(\''+p.deposit_address+'\',this)">Copy</button></div>';
     }
     html += '<div class="status '+statusCls+'">'+statusDot+'<span>'+statusHtml+'</span></div>';
+    if(p.status==='confirmed') html += '<div class="receipt" id="receipt"><div class="receipt-title">Preparing your signed receipt…</div></div>';
     if(showPay && p.expires_at){ html += '<div class="expiry" id="expiry"></div>'; }
     html += '<div class="foot">Non-custodial — funds go straight to the merchant. Liquid Flow never holds your money. Secured by Liquid Flow.</div>';
     document.getElementById('card').innerHTML = html;
+
+    if(p.status==='confirmed') loadReceipt(p.payment_id);
 
     if(showPay && p.expires_at) startExpiry(p.expires_at);
     else if(expiryTimer){ clearInterval(expiryTimer); }
@@ -102,8 +106,41 @@
     tick(); expiryTimer=setInterval(tick,1000);
   }
 
-  function chainName(c){ return ({'eip155:84532':'Base','eip155:5042002':'Arc','eip155:8453':'Base','solana':'Solana','sui':'Sui'})[c] || c; }
+  function chainName(c){ return ({'eip155:1':'Ethereum','eip155:137':'Polygon','eip155:84532':'Base Sepolia','eip155:5042002':'Arc','eip155:8453':'Base','solana':'Solana','sui':'Sui'})[c] || c; }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[m];}); }
+
+  function receiptStorageKey(paymentId){ return 'liquidflow:receipt:'+paymentId; }
+  function showReceipt(bundle, backedUp){
+    receiptBundle=bundle;
+    var el=document.getElementById('receipt'); if(!el) return;
+    el.innerHTML='<div class="receipt-title">✓ Signed payment receipt ready</div>'
+      +'<div class="receipt-note">'+(backedUp?'Recovered from this browser.':'Saved in this browser for payment support, even if the merchant callback fails.')+'</div>'
+      +'<div class="receipt-actions"><button class="receipt-btn" onclick="downloadReceipt()">Download receipt</button>'
+      +'<button class="receipt-btn" onclick="copyReceipt(this)">Copy receipt</button>'
+      +'<a class="receipt-btn" href="/receipt-verify.html" target="_blank" rel="noopener">Verify</a></div>';
+  }
+  async function loadReceipt(paymentId){
+    var stored=null; try{ stored=localStorage.getItem(receiptStorageKey(paymentId)); }catch(e){}
+    try{
+      var r=await fetch('/api/receipt?action=get&id='+encodeURIComponent(paymentId));
+      if(!r.ok) throw new Error('receipt unavailable');
+      var bundle=await r.json();
+      try{ localStorage.setItem(receiptStorageKey(paymentId),JSON.stringify(bundle)); }catch(e){}
+      showReceipt(bundle,false);
+    }catch(e){
+      if(stored){ try{ showReceipt(JSON.parse(stored),true); return; }catch(x){} }
+      var el=document.getElementById('receipt'); if(el) el.innerHTML='<div class="receipt-title">Payment confirmed</div><div class="receipt-note">Receipt preparation is retrying. Keep this payment ID: '+esc(paymentId)+'</div>';
+    }
+  }
+  function downloadReceipt(){
+    if(!receiptBundle) return;
+    var blob=new Blob([JSON.stringify(receiptBundle,null,2)],{type:'application/json'}), a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='liquidflow-'+receiptBundle.receipt.payment_id+'-receipt.json'; a.click(); setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+  }
+  function copyReceipt(el){
+    if(!receiptBundle) return; var value=JSON.stringify(receiptBundle,null,2);
+    if(navigator.clipboard) navigator.clipboard.writeText(value); var old=el.textContent; el.textContent='Copied'; setTimeout(function(){el.textContent=old;},1200);
+  }
 
   async function load(){
     try{
