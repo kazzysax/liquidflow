@@ -82,24 +82,24 @@ function candidatePaths(cfg, input, output) {
   return [direct, ...via];
 }
 
-async function assertContracts(cfg, provider, blockTag) {
-  const [routerCode, factoryCode] = await Promise.all([provider.getCode(cfg.router, blockTag), provider.getCode(cfg.factory, blockTag)]);
+async function assertContracts(cfg, provider) {
+  const [routerCode, factoryCode] = await Promise.all([provider.getCode(cfg.router), provider.getCode(cfg.factory)]);
   if (routerCode === '0x' || factoryCode === '0x') throw new Error('approved DEX contracts are not deployed on this chain');
   const router = new ethers.Contract(cfg.router, routerInterface.fragments, provider);
-  const factoryRead = cfg.provider === 'Verse DEX' ? router.FACTORY({ blockTag }) : router.factory({ blockTag });
-  const [factory, wrapped] = await Promise.all([factoryRead, router.WETH({ blockTag })]);
+  const factoryRead = cfg.provider === 'Verse DEX' ? router.FACTORY() : router.factory();
+  const [factory, wrapped] = await Promise.all([factoryRead, router.WETH()]);
   if (factory.toLowerCase() !== cfg.factory.toLowerCase() || wrapped.toLowerCase() !== cfg.wrapped.toLowerCase()) throw new Error('DEX router identity check failed');
 }
 
-async function inspectPath(cfg, path, amounts, provider, blockTag) {
+async function inspectPath(cfg, path, amounts, provider) {
   const factory = new ethers.Contract(cfg.factory, factoryInterface.fragments, provider);
   const pools = [];
   let totalImpact = 0;
   for (let i = 0; i < path.length - 1; i++) {
-    const pairAddress = await factory.getPair(path[i], path[i + 1], { blockTag });
+    const pairAddress = await factory.getPair(path[i], path[i + 1]);
     if (!ethers.isAddress(pairAddress) || pairAddress === ethers.ZeroAddress) throw new Error('route contains a missing pool');
     const pair = new ethers.Contract(pairAddress, pairInterface.fragments, provider);
-    const [token0, reserves] = await Promise.all([pair.token0({ blockTag }), pair.getReserves({ blockTag })]);
+    const [token0, reserves] = await Promise.all([pair.token0(), pair.getReserves()]);
     const normal = token0.toLowerCase() === path[i].toLowerCase();
     const reserveIn = BigInt(normal ? reserves[0] : reserves[1]);
     const reserveOut = BigInt(normal ? reserves[1] : reserves[0]);
@@ -149,19 +149,19 @@ async function quote(params, providerOverride) {
   const checked = validate(params);
   const provider = providerOverride || new ethers.JsonRpcProvider(rpcUrl(String(params.chain)));
   const blockNumber = await provider.getBlockNumber();
-  await assertContracts(checked.cfg, provider, blockNumber);
+  await assertContracts(checked.cfg, provider);
   const router = new ethers.Contract(checked.cfg.router, routerInterface.fragments, provider);
   const candidates = await Promise.all(candidatePaths(checked.cfg, checked.input, checked.output).map(async path => {
     try {
-      const amounts = await router.getAmountsOut(checked.amountIn, path, { blockTag: blockNumber });
-      const inspected = await inspectPath(checked.cfg, path, amounts, provider, blockNumber);
+      const amounts = await router.getAmountsOut(checked.amountIn, path);
+      const inspected = await inspectPath(checked.cfg, path, amounts, provider);
       return { path, amounts, amountOut: BigInt(amounts[amounts.length - 1]), ...inspected };
     } catch { return null; }
   }));
   const best = candidates.filter(Boolean).sort((a, b) => a.amountOut > b.amountOut ? -1 : a.amountOut < b.amountOut ? 1 : 0)[0];
   if (!best || best.amountOut <= 0n) throw new Error('no safe live DEX route is available for this amount');
   const inputToken = new ethers.Contract(checked.input.address, erc20Interface.fragments, provider);
-  const allowance = BigInt(await inputToken.allowance(checked.recipient, checked.cfg.router, { blockTag: blockNumber }));
+  const allowance = BigInt(await inputToken.allowance(checked.recipient, checked.cfg.router));
   return buildPlan({ ...checked, ...best, allowance, blockNumber });
 }
 
