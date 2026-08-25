@@ -124,27 +124,27 @@
             <thead><tr><th>Created</th><th>Amount</th><th>Deposit address</th><th>Status</th><th></th></tr></thead>
             <tbody id="rows"></tbody>
           </table>
-          <div class="empty" id="emptyMsg" style="display:none">No payments yet — create a test payment on the right.</div>
+          <div class="empty" id="emptyMsg" style="display:none">No payments yet — create a payment on the right.</div>
         </div>
       </div>
 
       <div class="card">
-        <h2>Create a test payment</h2>
+        <h2>Create a mainnet payment</h2>
         <div class="row2">
           <div class="fg">
             <label>Network</label>
             <select class="lf-input" id="payChain" style="font-family:var(--body)" onchange="syncAsset()">
-              <option value="eip155:84532">Base</option>
-              <option value="eip155:5042002">Arc</option>
-              <option value="solana">Solana</option>
-              <option value="sui">Sui</option>
+              <option value="eip155:1">Ethereum</option>
+              <option value="eip155:137">Polygon</option>
+              <option value="eip155:8453">Base</option>
             </select>
           </div>
           <div class="fg">
-            <label>Amount (<span id="amtSym">ETH</span>)</label>
-            <input class="lf-input" id="payAmt" value="0.001" style="font-family:var(--body)">
+            <label>Asset</label>
+            <select class="lf-input" id="payAsset" style="font-family:var(--body)" onchange="syncAmountLabel()"></select>
           </div>
         </div>
+        <div class="fg"><label>Amount (<span id="amtSym">VERSE</span>)</label><input class="lf-input" id="payAmt" value="1" inputmode="decimal" style="font-family:var(--body)"></div>
         <div class="fg">
           <label>Label (optional)</label>
           <input class="lf-input" id="payLabel" placeholder="Order #1024" style="font-family:var(--body)">
@@ -159,14 +159,17 @@
 
 <script>
   var KEY=null, timer=null;
-  var CHAIN_DEC={'eip155:84532':18,'eip155:5042002':6,'solana':9,'sui':9};
-  var CHAIN_SYM={'eip155:84532':'ETH','eip155:5042002':'USDC','solana':'SOL','sui':'SUI'};
-  function decOf(c){ return CHAIN_DEC[c]!=null?CHAIN_DEC[c]:18; }
-  function symOf(c){ return CHAIN_SYM[c]||'ETH'; }
+  var PAYMENT_ASSETS={
+    'eip155:1':[{value:'VERSE',symbol:'VERSE',decimals:18},{value:'USDC',symbol:'USDC',decimals:6}],
+    'eip155:137':[{value:'fxVERSE',symbol:'fxVERSE',decimals:18},{value:'USDC',symbol:'USDC',decimals:6}],
+    'eip155:8453':[{value:'USDC',symbol:'USDC',decimals:6}]
+  };
+  function selectedAsset(){var c=document.getElementById('payChain').value,a=document.getElementById('payAsset').value;return (PAYMENT_ASSETS[c]||[]).find(function(x){return x.value===a})||PAYMENT_ASSETS[c][0];}
   function authHdr(){ return {'Authorization':'Bearer '+KEY,'Content-Type':'application/json'}; }
   function short(a){ return a ? a.slice(0,10)+'…'+a.slice(-6) : ''; }
   function fmtAmt(base, dec){ try{ return (Number(base)/Math.pow(10, dec!=null?dec:18)).toFixed(6).replace(/0+$/,'').replace(/\.$/,''); }catch(e){ return '0'; } }
-  function syncAsset(){ var c=document.getElementById('payChain').value; document.getElementById('amtSym').textContent=symOf(c); }
+  function syncAsset(){var c=document.getElementById('payChain').value,s=document.getElementById('payAsset');s.innerHTML=(PAYMENT_ASSETS[c]||[]).map(function(a){return '<option value="'+a.value+'">'+a.symbol+'</option>';}).join('');syncAmountLabel();}
+  function syncAmountLabel(){var a=selectedAsset();document.getElementById('amtSym').textContent=a?a.symbol:'Asset';}
   function ago(ts){ if(!ts) return ''; var s=(Date.now()-ts)/1000; if(s<60) return Math.floor(s)+'s ago'; if(s<3600) return Math.floor(s/60)+'m ago'; if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
 
   async function login(){
@@ -252,8 +255,13 @@
     try{
       var chain=document.getElementById('payChain').value;
       var amt=parseFloat(document.getElementById('payAmt').value||'0');
-      var base=BigInt(Math.round(amt*Math.pow(10, decOf(chain)))).toString();
-      var body={ amount:base, asset:symOf(chain), chain:chain, label:document.getElementById('payLabel').value||'' };
+      var asset=selectedAsset();
+      if(!asset||!Number.isFinite(amt)||amt<=0) throw new Error('enter a valid positive amount');
+      var parts=String(document.getElementById('payAmt').value||'').trim().split('.');
+      if(parts.length>2||!/^\d+$/.test(parts[0]||'')||(parts[1]&&!/^\d+$/.test(parts[1]))) throw new Error('enter a valid decimal amount');
+      if((parts[1]||'').length>asset.decimals) throw new Error('amount has too many decimal places');
+      var base=(BigInt(parts[0]||'0')*10n**BigInt(asset.decimals)+BigInt(((parts[1]||'')+'0'.repeat(asset.decimals)).slice(0,asset.decimals)||'0')).toString();
+      var body={ amount:base, asset:asset.value, chain:chain, label:document.getElementById('payLabel').value||'' };
       var r=await fetch('/api/payments',{method:'POST',headers:authHdr(),body:JSON.stringify(body)});
       if(!r.ok){ var e=await r.json().catch(function(){return{};}); throw new Error(e.error||'failed'); }
       document.getElementById('payLabel').value='';
@@ -277,6 +285,7 @@
     if(saved){ document.getElementById('keyInput').value=saved; login(); }
   })();
   document.getElementById('keyInput').addEventListener('keydown',function(e){ if(e.key==='Enter') login(); });
+  syncAsset();
 </script>
 </body>
 </html>
