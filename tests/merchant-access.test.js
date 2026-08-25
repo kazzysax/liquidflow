@@ -28,7 +28,9 @@ test('new merchant gateways activate immediately without a subscription invoice'
       chains: ['eip155:1'],
       settle: 'VERSE',
       mode: 'stealth',
-      payout: '',
+      unify: false,
+      dex: null,
+      payout: '0x1111111111111111111111111111111111111111',
       webhook: 'https://example.com/api/liquidflow/webhook',
     },
   };

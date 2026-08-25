@@ -200,15 +200,21 @@
         <div class="sub">Choose where funds go and where LiquidFlow notifies your application. Merchant gateways activate immediately with no subscription fee.</div>
 
         <div class="field">
-          <label>Payout wallet</label>
-          <div class="hint">Your own wallet address. You can sweep all liquidity here at any time — it stays under your control.</div>
-          <input type="text" class="mono" id="payout" placeholder="0x… your external wallet address">
+          <label>Merchant or application name</label>
+          <div class="hint">The name shown for this payment integration.</div>
+          <input type="text" id="merchantName" required placeholder="Your business or dApp name">
+        </div>
+
+        <div class="field">
+          <label>Sweep / payout wallet</label>
+          <div class="hint">Required in every mode. Private deposits can be swept here; instant payments settle here directly.</div>
+          <input type="text" class="mono" id="payout" required placeholder="0x… your external wallet address">
         </div>
 
         <div class="field">
           <label>Webhook URL</label>
           <div class="hint">Where we send "payment confirmed" so your platform releases the service.</div>
-          <input type="text" class="mono" id="webhook" placeholder="https://yourplatform.com/api/liquidflow/webhook">
+          <input type="text" class="mono" id="webhook" required placeholder="https://yourplatform.com/api/liquidflow/webhook">
         </div>
       </div>
 
@@ -232,7 +238,7 @@
 
 <script>
   let step=0; const TOTAL=5;
-  const cfg={ chains:['eip155:1','eip155:137','eip155:8453'], settle:'AS_RECEIVED', unify:false, dex:'Disabled pending audit', mode:'stealth', payout:'', webhook:'' };
+  const cfg={ name:'', chains:['eip155:1','eip155:137','eip155:8453'], settle:'AS_RECEIVED', unify:false, dex:null, mode:'stealth', payout:'', webhook:'' };
 
   // multi-select grids
   function bindGrid(id, key){
@@ -279,10 +285,12 @@
   }
 
   function renderReview(){
+    cfg.name=document.getElementById('merchantName').value.trim();
     cfg.payout=document.getElementById('payout').value;
     cfg.webhook=document.getElementById('webhook').value;
     cfg.settle=document.getElementById('settleCur').value;
     const rows=[
+      ['Merchant / application', cfg.name||'—'],
       ['Chains', cfg.chains.join(', ')||'—'],
       ['Settlement currency', cfg.settle],
       ['Liquidity unification', cfg.unify?('On · via '+cfg.dex):'Off (funds stay as sent)'],
@@ -295,10 +303,27 @@
   }
 
   function go(dir){
+    if(dir>0 && !validateStep()) return;
     if(dir>0 && step<TOTAL-1){ step++; }
     else if(dir<0 && step>0){ step--; }
     else if(dir>0 && step===TOTAL-1){ createSystem(); return; }
     update();
+  }
+
+  function validateStep(){
+    if(step===0 && !cfg.chains.length){ alert('Select at least one supported mainnet.'); return false; }
+    if(step===1 && !document.getElementById('settleCur').value){ alert('Choose a settlement policy.'); return false; }
+    if(step===2 && !cfg.mode){ alert('Choose a deposit address mode.'); return false; }
+    if(step===3){
+      const name=document.getElementById('merchantName').value.trim();
+      const payout=document.getElementById('payout').value.trim();
+      const webhook=document.getElementById('webhook').value.trim();
+      if(!name){ alert('Merchant or application name is required.'); return false; }
+      if(!/^0x[0-9a-fA-F]{40}$/.test(payout)){ alert('Enter a valid EVM sweep / payout wallet.'); return false; }
+      try{ const u=new URL(webhook); if(u.protocol!=='https:') throw new Error(); }
+      catch(e){ alert('Enter a live HTTPS webhook endpoint.'); return false; }
+    }
+    return true;
   }
 
   function update(){
@@ -317,9 +342,11 @@
   async function createSystem(){
     const btn=document.getElementById('nextBtn');
     btn.textContent='Creating…'; btn.disabled=true;
-    cfg.payout=document.getElementById('payout').value;
-    cfg.webhook=document.getElementById('webhook').value;
+    cfg.name=document.getElementById('merchantName').value.trim();
+    cfg.payout=document.getElementById('payout').value.trim();
+    cfg.webhook=document.getElementById('webhook').value.trim();
     cfg.settle=document.getElementById('settleCur').value;
+    cfg.dex=cfg.unify?cfg.dex:null;
     try {
       const res=await fetch('/api/merchants',{
         method:'POST',

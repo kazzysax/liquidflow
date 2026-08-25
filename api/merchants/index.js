@@ -41,8 +41,10 @@ module.exports = async function handler(req, res) {
       mode:        m.mode,
       chains:      m.chains || [],
       settle:      m.settle || 'AS_RECEIVED',
-      payout:      m.payout || '',
-      webhook_url: m.webhookUrl || '',
+      unify:       m.unify === true,
+      dex:         m.dex || null,
+      payout:      m.payout || null,
+      webhook_url: m.webhookUrl || null,
       webhook_secret: m.webhookSecret,
       status:      'active',
       created_at:  m.createdAt,
@@ -53,26 +55,16 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
   const {
-    name     = '',
-    chains   = [],
-    settle   = 'AS_RECEIVED',
-    unify    = false,
-    dex      = 'NEAR Intents',
-    mode     = 'instant',
-    payout   = '',
-    webhook  = '',
+    name, chains, settle, unify, dex, mode, payout, webhook,
   } = req.body || {};
 
   // --- Gating: no silent defaults for essentials. Reject incomplete/unsafe signups. ---
-  const isUrl = (u) => { try { const x = new URL(u); return x.protocol === 'https:' || x.protocol === 'http:'; } catch { return false; } };
+  const isUrl = (u) => { try { return new URL(u).protocol === 'https:'; } catch { return false; } };
   if (!name || !String(name).trim()) {
     return res.status(400).json({ error: 'name is required' });
   }
   if (!isUrl(webhook)) {
     return res.status(400).json({ error: 'a valid webhook URL (https) is required so you receive payment confirmations' });
-  }
-  if (process.env.VERCEL_ENV === 'production' && !/^https:/i.test(webhook)) {
-    return res.status(400).json({ error: 'webhook URL must be https in production' });
   }
   // SSRF: we POST to this URL server-side, so it must resolve to a public host —
   // never localhost, cloud metadata (169.254.169.254), or a private/RFC1918 range.
@@ -91,13 +83,19 @@ module.exports = async function handler(req, res) {
   if (!['AS_RECEIVED', 'USDC', 'VERSE', 'FXVERSE'].includes(String(settle || '').toUpperCase())) {
     return res.status(400).json({ error: 'settle must be AS_RECEIVED, USDC, VERSE or fxVERSE' });
   }
+  if (typeof unify !== 'boolean') {
+    return res.status(400).json({ error: 'unify must be explicitly true or false' });
+  }
   if (String(settle).toUpperCase() === 'AS_RECEIVED' && unify === true) {
     return res.status(400).json({ error: 'AS_RECEIVED settlement cannot enable liquidity unification' });
   }
-  // Instant (non-stealth) mode sends funds straight to `payout`, so it must be a real
-  // EVM address. Stealth mode derives per-payment addresses and needs no payout here.
-  if (mode !== 'stealth' && !/^0x[0-9a-fA-F]{40}$/.test(String(payout))) {
-    return res.status(400).json({ error: 'instant mode requires a valid 0x payout address' });
+  if (!/^0x[0-9a-fA-F]{40}$/.test(String(payout || ''))) {
+    return res.status(400).json({ error: 'a valid EVM sweep / payout wallet is required' });
+  }
+
+  const normalizedDex = unify ? String(dex || '').trim() : null;
+  if (unify && !normalizedDex) {
+    return res.status(400).json({ error: 'dex is required when liquidity unification is enabled' });
   }
 
   const merchantId    = 'm_' + crypto.randomBytes(8).toString('hex');
@@ -106,16 +104,16 @@ module.exports = async function handler(req, res) {
 
   const merchant = {
     id: merchantId,
-    name,
+    name: String(name).trim(),
     apiKey: apiKeyVal,
     webhookUrl: webhook,
     webhookSecret,
     mode,
     chains,
-    settle,
+    settle: String(settle).toUpperCase(),
     unify,
-    dex,
-    payout,
+    dex: normalizedDex,
+    payout: String(payout),
     status: 'active',
     activatedAt: Date.now(),
     createdAt: Date.now(),
