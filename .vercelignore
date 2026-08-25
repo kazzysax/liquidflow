@@ -1,0 +1,6 @@
+# Cross-chain CCTP routes are outside the audited Verse Buildathon checkout path.
+# Excluding them keeps the Hobby deployment below the 12-function limit.
+api/swap/
+
+# Solidity sources and internal review artifacts are not runtime deployment inputs.
+liquidflow-backend/contracts/
