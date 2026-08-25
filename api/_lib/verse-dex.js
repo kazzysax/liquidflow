@@ -14,6 +14,7 @@ const ROUTES = Object.freeze({
   'eip155:1': Object.freeze({
     chainId: 1,
     provider: 'Verse DEX',
+    role: 'primary',
     router: '0xB4B0ea46Fe0E9e8EAB4aFb765b527739F2718671',
     factory: '0xee3E9E46E34a27dC755a63e2849C9913Ee1A06E2',
     wrapped: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
@@ -26,6 +27,7 @@ const ROUTES = Object.freeze({
   'eip155:137': Object.freeze({
     chainId: 137,
     provider: 'QuickSwap',
+    role: 'liquidity_fallback',
     router: '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff',
     factory: '0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32',
     wrapped: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
@@ -128,6 +130,7 @@ function buildPlan({ cfg, input, output, amountIn, amountOut, path, recipient, b
   steps.push({ label: `swap ${input.symbol} to ${output.symbol}`, to: cfg.router, data: routerInterface.encodeFunctionData('swapExactTokensForTokens', [amountIn, minOut, path, recipient, expires]), value: '0' });
   return {
     provider: cfg.provider,
+    provider_role: cfg.role,
     chain: Object.keys(ROUTES).find(k => ROUTES[k] === cfg),
     chain_id: cfg.chainId,
     router: cfg.router,
@@ -141,7 +144,9 @@ function buildPlan({ cfg, input, output, amountIn, amountOut, path, recipient, b
     path,
     pools,
     steps,
-    note: 'Merchant-signed mainnet swap. Contracts and tokens are allowlisted, approval is exact, pool impact is capped, and calldata expires after ten minutes.',
+    note: cfg.role === 'liquidity_fallback'
+      ? 'Merchant-signed Polygon liquidity fallback. QuickSwap is used only where an official Verse DEX router cannot provide the required Polygon route. Contracts and tokens are allowlisted, approval is exact, pool impact is capped, and calldata expires after ten minutes.'
+      : 'Merchant-signed mainnet swap through the official Verse DEX router. Contracts and tokens are allowlisted, approval is exact, pool impact is capped, and calldata expires after ten minutes.',
   };
 }
 
@@ -151,13 +156,16 @@ async function quote(params, providerOverride) {
   const blockNumber = await provider.getBlockNumber();
   await assertContracts(checked.cfg, provider);
   const router = new ethers.Contract(checked.cfg.router, routerInterface.fragments, provider);
-  const candidates = await Promise.all(candidatePaths(checked.cfg, checked.input, checked.output).map(async path => {
+  // Read candidates sequentially. Some production RPC providers throttle the
+  // short burst of calls needed to inspect several pools in parallel.
+  const candidates = [];
+  for (const path of candidatePaths(checked.cfg, checked.input, checked.output)) {
     try {
       const amounts = await router.getAmountsOut(checked.amountIn, path);
       const inspected = await inspectPath(checked.cfg, path, amounts, provider);
-      return { path, amounts, amountOut: BigInt(amounts[amounts.length - 1]), ...inspected };
-    } catch { return null; }
-  }));
+      candidates.push({ path, amounts, amountOut: BigInt(amounts[amounts.length - 1]), ...inspected });
+    } catch { /* Try the next allowlisted path. */ }
+  }
   const best = candidates.filter(Boolean).sort((a, b) => a.amountOut > b.amountOut ? -1 : a.amountOut < b.amountOut ? 1 : 0)[0];
   if (!best || best.amountOut <= 0n) throw new Error('no safe live DEX route is available for this amount');
   const inputToken = new ethers.Contract(checked.input.address, erc20Interface.fragments, provider);

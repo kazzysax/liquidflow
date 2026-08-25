@@ -8,8 +8,10 @@ const wallet = '0x1111111111111111111111111111111111111111';
 test('DEX routes pin only the approved mainnet routers and canonical tokens', () => {
   const eth = dex.ROUTES['eip155:1'], polygon = dex.ROUTES['eip155:137'];
   assert.equal(eth.router, '0xB4B0ea46Fe0E9e8EAB4aFb765b527739F2718671');
+  assert.equal(eth.role, 'primary');
   assert.equal(eth.tokens.VERSE.address.toLowerCase(), '0x249ca82617ec3dfb2589c4c17ab7ec9765350a18');
   assert.equal(polygon.router.toLowerCase(), '0xa5e0829caced8ffdd4de3c43696c57f7d7a678ff');
+  assert.equal(polygon.role, 'liquidity_fallback');
   assert.equal(polygon.tokens.FXVERSE.address.toLowerCase(), '0xc708d6f2153933daa50b2d0758955be0a93a8fec');
   assert.equal(Object.keys(dex.ROUTES).length, 2);
 });
