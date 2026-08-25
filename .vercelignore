@@ -2,5 +2,9 @@
 # Excluding them keeps the Hobby deployment below the 12-function limit.
 api/swap/
 
+# Test-confirm simulation is deliberately disabled in production. Exclude the
+# endpoint itself so it does not consume a Hobby serverless-function slot.
+api/simulate/
+
 # Solidity sources and internal review artifacts are not runtime deployment inputs.
 liquidflow-backend/contracts/
