@@ -116,8 +116,7 @@
     el.innerHTML='<div class="receipt-title">✓ Signed payment receipt ready</div>'
       +'<div class="receipt-note">'+(backedUp?'Recovered from this browser.':'Saved in this browser for payment support, even if the merchant callback fails.')+'</div>'
       +'<div class="receipt-actions"><button class="receipt-btn" onclick="downloadReceipt()">Download receipt</button>'
-      +'<button class="receipt-btn" onclick="copyReceipt(this)">Copy receipt</button>'
-      +'<a class="receipt-btn" href="/receipt-verify.html" target="_blank" rel="noopener">Verify</a></div>';
+      +'<button class="receipt-btn" onclick="copyReceipt(this)">Copy receipt</button></div>';
   }
   async function loadReceipt(paymentId){
     var stored=null; try{ stored=localStorage.getItem(receiptStorageKey(paymentId)); }catch(e){}
