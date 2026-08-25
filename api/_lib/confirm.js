@@ -28,34 +28,6 @@ async function confirmPayment(payment, confirmations) {
   await store.set(`payment:${payment.id}`, payment);
   await store.srem('payments:pending', payment.id);
 
-  // Onboarding fee → activate the merchant's gateway (their API key now works).
-  if (payment.onboarding && payment.apiKey) {
-    const m = await store.get(`merchant:${payment.apiKey}`);
-    if (m && m.status !== 'active') {
-      m.status = 'active';
-      m.activatedAt = Date.now();
-      await store.set(`merchant:${payment.apiKey}`, m);
-    }
-    await trackVerseEvent('Merchant Activated', {
-      asset: payment.asset,
-      chain: payment.chain,
-    });
-    if (m && m.webhookUrl) {
-      await webhook.send(m.webhookUrl, m.webhookSecret, {
-        type:          'merchant.activated',
-        merchant_id:   m.id,
-        payment_id:    payment.id,
-        amount:        payment.amount,
-        asset:         payment.asset,
-        chain:         payment.chain,
-        confirmations,
-        final:         true,
-      });
-      return true;
-    }
-    return false;
-  }
-
   await trackVerseEvent('Payment Confirmed', {
     asset: payment.asset,
     chain: payment.chain,

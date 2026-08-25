@@ -71,15 +71,14 @@
   -H "Content-Type: application/json" -d '{
   "name": "Acme",
   "mode": "stealth",
-  "plan": "Growth ($18/mo)",
   "chains": ["eip155:1", "eip155:137", "eip155:8453"],
   "settle": "USDC",
   "payout": "",
   "webhook": "https://acme.com/lf/hook"
 }'
-# Returns merchant_id, api_key, webhook_secret, spend_key, view_key and onboarding.</code></pre>
+# Returns an active merchant_id, api_key, webhook_secret, spend_key and view_key. No subscription or activation payment is required.</code></pre>
     <h3><span class="m get">GET</span> /api/merchants</h3>
-    <p>Authenticated. Returns the merchant profile (name, mode, plan, chains, payout, webhook secret, created_at).</p>
+    <p>Authenticated. Returns the active merchant profile (name, mode, chains, payout, webhook secret, created_at).</p>
 
     <h2>Payments</h2>
     <h3><span class="m post">POST</span> /api/payments</h3>

@@ -243,6 +243,15 @@ async function checkAndConfirm(payment) {
   if (!payment || !ACTIVE_PAYMENT_STATUSES.has(payment.status)) return payment;
   const previousStatus = payment.status;
 
+  // Cancel legacy subscription invoices without collecting funds.
+  if (payment.onboarding) {
+    payment.status = 'cancelled';
+    payment.cancelledAt = Date.now();
+    await store.set(`payment:${payment.id}`, payment);
+    await store.srem('payments:pending', payment.id);
+    return payment;
+  }
+
   // A malformed/zero/negative amount must never confirm. Guard here too so a bad
   // record that slipped past creation validation can't confirm against `bal >= 0`.
   if (!isValidBaseAmount(payment.amount)) return payment;

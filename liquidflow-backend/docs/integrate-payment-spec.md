@@ -109,16 +109,12 @@ id, not by minting wallets.
 
 ---
 
-## 8. Plans
+## 8. Merchant access
 
-Two plan tiers, each with monthly and yearly pricing:
-
-| Plan | Monthly | Yearly |
-|---|---|---|
-| Plan 1 | $10 | $100 |
-| Plan 2 | $18 | $180 |
-
-(Display amounts; settled in the builder's chosen currency at payment time.)
+Merchant gateways activate immediately after a valid setup request. LiquidFlow
+does not require a subscription, activation payment, monthly plan, or yearly
+plan. Merchants pay only the network costs associated with their own on-chain
+payment and recovery operations.
 
 ---
 

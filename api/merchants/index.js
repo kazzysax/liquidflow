@@ -4,9 +4,8 @@
 const crypto = require('crypto');
 const store  = require('../_lib/store');
 const { generateKeypair } = require('../_lib/crypto');
-const platform = require('../_lib/platform');
 const { isPublicHttpUrl } = require('../_lib/webhook');
-const { chainSupported, currentBlock } = require('../_lib/chain');
+const { trackVerseEvent } = require('../_lib/verse-analytics');
 const MAINNET_CHAINS = new Set(['eip155:1', 'eip155:137', 'eip155:8453']);
 
 function cors(res) {
@@ -28,37 +27,26 @@ module.exports = async function handler(req, res) {
     const key = apiKey(req);
     const m = await store.get(`merchant:${key}`);
     if (!m) return res.status(401).json({ error: 'invalid api key' });
-    // Backward-compat: merchants created before gating had no status → treat as active.
-    const status = m.status || 'active';
+    // Subscription gating was removed. Release legacy merchants that were waiting
+    // for the old onboarding invoice as soon as they authenticate.
+    if (m.status === 'pending_activation') {
+      m.status = 'active';
+      m.activatedAt = m.activatedAt || Date.now();
+      delete m.onboardingPaymentId;
+      await store.set(`merchant:${key}`, m);
+    }
     const out = {
       merchant_id: m.id,
       name:        m.name || 'Merchant',
       mode:        m.mode,
-      plan:        m.plan || null,
       chains:      m.chains || [],
       settle:      m.settle || 'USDC',
       payout:      m.payout || '',
       webhook_url: m.webhookUrl || '',
       webhook_secret: m.webhookSecret,
-      status,
+      status:      'active',
       created_at:  m.createdAt,
     };
-    // While pending, surface the unpaid onboarding invoice so the UI can prompt payment.
-    if (status !== 'active' && m.onboardingPaymentId) {
-      const inv = await store.get(`payment:${m.onboardingPaymentId}`);
-      if (inv) {
-        out.onboarding = {
-          payment_id:      inv.id,
-          deposit_address: inv.depositAddress,
-          amount:          inv.amount,
-          asset:           inv.asset,
-          chain:           inv.chain,
-          decimals:        6,
-          status:          inv.status,
-          expires_at:      inv.expiresAt,
-        };
-      }
-    }
     return res.status(200).json(out);
   }
 
@@ -71,7 +59,6 @@ module.exports = async function handler(req, res) {
     unify    = true,
     dex      = 'NEAR Intents',
     mode     = 'instant',
-    plan     = null,
     payout   = '',
     webhook  = '',
   } = req.body || {};
@@ -121,13 +108,13 @@ module.exports = async function handler(req, res) {
     webhookUrl: webhook,
     webhookSecret,
     mode,
-    plan,
     chains,
     settle,
     unify,
     dex,
     payout,
-    status: 'pending_activation', // becomes 'active' once the onboarding fee confirms
+    status: 'active',
+    activatedAt: Date.now(),
     createdAt: Date.now(),
   };
 
@@ -141,53 +128,15 @@ module.exports = async function handler(req, res) {
     viewKey = kp.k_view;
   }
 
-  // Onboarding invoice: the merchant must pay the fee — through our own payment system —
-  // before the gateway activates. A fresh Polygon address receives canonical USDC.
-  const onboardingId = 'pay_' + crypto.randomBytes(8).toString('hex');
-  const inv = await platform.createOnboardingInvoice(onboardingId);
-  let onboardingStartBlock;
-  try { onboardingStartBlock = (await currentBlock(inv.chain)).toString(); }
-  catch { return res.status(503).json({ error: 'could not anchor onboarding payment to the chain; please retry' }); }
-  const onboardingPayment = {
-    id: onboardingId,
-    merchantId,
-    apiKey: apiKeyVal,          // links the fee to the merchant it activates
-    onboarding: true,
-    amount: inv.amount,
-    asset:  inv.asset,
-    chain:  inv.chain,
-    label: 'Liquid Flow gateway — 1 month',
-    depositAddress: inv.depositAddress,
-    R: inv.R,
-    mode: 'stealth',
-    status: 'awaiting_payment',
-    createdAt: Date.now(),
-    expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour to pay
-    startBlock: onboardingStartBlock,
-  };
-  merchant.onboardingPaymentId = onboardingId;
-
   await store.set(`merchant:${apiKeyVal}`, merchant);
-  await store.set(`payment:${onboardingId}`, onboardingPayment);
-  await store.sadd('payments:pending', onboardingId);
+  await trackVerseEvent('Merchant Created', { mode, settle, chains: chains.join(',') });
 
   const resp = {
     merchant_id:    merchantId,
-    api_key:        apiKeyVal,      // issued now, but INERT until the fee is paid
+    api_key:        apiKeyVal,
     webhook_secret: webhookSecret,
     mode,
-    plan,
-    status: 'pending_activation',
-    onboarding: {
-      payment_id:      onboardingId,
-      deposit_address: inv.depositAddress,
-      amount:          inv.amount,
-      asset:           inv.asset,
-      chain:           inv.chain,
-      decimals:        inv.decimals,
-      expires_at:      onboardingPayment.expiresAt,
-      note:            `Pay ${platform.FEE_USDC} ${inv.asset} on Polygon PoS to this address to activate your gateway. Confirmation is automatic (on-chain watcher).`,
-    },
+    status: 'active',
   };
   if (spendKey) {
     resp.spend_key          = spendKey;     // Ethereum / Polygon / Base

@@ -97,9 +97,12 @@ module.exports = async function handler(req, res) {
   // ---- CREATE ----
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
-  // Gated: the gateway must be activated (onboarding fee paid) before it can take payments.
-  if ((merchant.status || 'active') === 'pending_activation') {
-    return res.status(402).json({ error: 'gateway not activated — pay the onboarding fee to enable payments' });
+  // Subscription gating was removed. Transparently release legacy merchant keys.
+  if (merchant.status === 'pending_activation') {
+    merchant.status = 'active';
+    merchant.activatedAt = merchant.activatedAt || Date.now();
+    delete merchant.onboardingPaymentId;
+    await store.set(`merchant:${key}`, merchant);
   }
 
   const { amount, asset, chain, label } = req.body || {};

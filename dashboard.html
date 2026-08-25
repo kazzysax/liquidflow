@@ -191,7 +191,7 @@
     document.getElementById('dashView').style.display='block';
     document.getElementById('mName').textContent=m.name && m.name.length?m.name:'Merchant';
     document.getElementById('mSub').textContent=(m.mode==='stealth'?'Stealth (private) mode':'Instant mode')
-      + (m.plan?(' · '+m.plan):'') + ' · '+m.merchant_id;
+      + ' · '+m.merchant_id;
     var sb=document.getElementById('secretBox');
     sb.style.display='block';
     sb.innerHTML='<b style="color:var(--ink)">Webhook secret</b><br>'+(m.webhook_secret||'—')

@@ -74,13 +74,6 @@
   .privacy-note{margin-top:10px;display:flex;gap:8px;font-size:11.5px;color:#4A3D9E;background:var(--veil-bg);border-radius:9px;padding:9px 11px;line-height:1.5}
   .warn-note{margin-top:10px;display:flex;gap:8px;font-size:11.5px;color:#854F0B;background:#FAEEDA;border-radius:9px;padding:9px 11px;line-height:1.5}
 
-  .plans{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-  .plan{border:1.5px solid var(--line);border-radius:13px;padding:16px;cursor:pointer;transition:.15s}
-  .plan:hover{border-color:#C2CCDD}
-  .plan[aria-pressed="true"]{border-color:var(--flow);background:#F3F7FF}
-  .plan .pn{font-family:var(--display);font-weight:600;font-size:14px}
-  .plan .pp{font-size:20px;font-weight:600;margin:6px 0 2px;font-family:var(--display)}
-  .plan .py{font-size:12px;color:var(--ink-2)}
 
   .nav{display:flex;justify-content:space-between;margin-top:26px}
   .btn{font-family:var(--display);font-size:13.5px;font-weight:500;padding:12px 22px;border-radius:100px;cursor:pointer;border:none;transition:transform .15s,box-shadow .25s}
@@ -117,7 +110,7 @@
       <span class="step-line"></span>
       <div class="step" data-s="2"><span class="num">3</span>Privacy</div>
       <span class="step-line"></span>
-      <div class="step" data-s="3"><span class="num">4</span>Plans</div>
+      <div class="step" data-s="3"><span class="num">4</span>Payout</div>
       <span class="step-line"></span>
       <div class="step" data-s="4"><span class="num">5</span>Review</div>
     </div>
@@ -200,27 +193,10 @@
         </div>
       </div>
 
-      <!-- STEP 4: plans + payout + webhook -->
+      <!-- STEP 4: payout + webhook -->
       <div class="panel" data-panel="3">
-        <h1>Plans &amp; payout</h1>
-        <div class="sub">Set the prices payers see, where funds go, and where we notify you.</div>
-
-        <div class="field">
-          <label>Plan pricing</label>
-          <div class="hint">Two plans, monthly and yearly. These are the amounts payers are charged.</div>
-          <div class="plans" id="planGrid">
-            <div class="plan" aria-pressed="true" data-v="Starter ($10/mo)" onclick="pickPlan(this)">
-              <div class="pn">Starter</div>
-              <div class="pp">$10<span style="font-size:13px;color:var(--ink-2)">/mo</span></div>
-              <div class="py">or $100 / year</div>
-            </div>
-            <div class="plan" aria-pressed="false" data-v="Growth ($18/mo)" onclick="pickPlan(this)">
-              <div class="pn">Growth</div>
-              <div class="pp">$18<span style="font-size:13px;color:var(--ink-2)">/mo</span></div>
-              <div class="py">or $180 / year</div>
-            </div>
-          </div>
-        </div>
+        <h1>Payout &amp; notifications</h1>
+        <div class="sub">Choose where funds go and where LiquidFlow notifies your application. Merchant gateways activate immediately with no subscription fee.</div>
 
         <div class="field">
           <label>Payout wallet</label>
@@ -255,12 +231,7 @@
 
 <script>
   let step=0; const TOTAL=5;
-  const cfg={ chains:['eip155:1','eip155:137','eip155:8453'], settle:'USDC', unify:false, dex:'Disabled pending audit', mode:'stealth', plan:'Starter ($10/mo)', payout:'', webhook:'' };
-
-  function pickPlan(el){
-    document.querySelectorAll('#planGrid .plan').forEach(p=>p.setAttribute('aria-pressed','false'));
-    el.setAttribute('aria-pressed','true'); cfg.plan=el.dataset.v;
-  }
+  const cfg={ chains:['eip155:1','eip155:137','eip155:8453'], settle:'USDC', unify:false, dex:'Disabled pending audit', mode:'stealth', payout:'', webhook:'' };
 
   // multi-select grids
   function bindGrid(id, key){
@@ -303,7 +274,6 @@
       ['Settlement currency', cfg.settle],
       ['Liquidity unification', cfg.unify?('On · via '+cfg.dex):'Off (funds stay as sent)'],
       ['Privacy mode', cfg.mode==='stealth'?'Private (stealth addresses)':'Instant forward (public)'],
-      ['Plans', 'Plan 1 $10/$100 · Plan 2 $18/$180'],
       ['Payout wallet', cfg.payout? cfg.payout.slice(0,10)+'…'+cfg.payout.slice(-6):'—'],
       ['Webhook', cfg.webhook||'—'],
     ];
@@ -329,7 +299,7 @@
     window.scrollTo({top:0,behavior:'smooth'});
   }
 
-  let _acct=null; // { key, spend_key, view_key, onboarding }
+  let _acct=null; // { key, spend_key, view_key }
 
   async function createSystem(){
     const btn=document.getElementById('nextBtn');
@@ -345,10 +315,10 @@
       });
       if(!res.ok){const e=await res.json();throw new Error(e.error||'server error');}
       const data=await res.json();
-      _acct={ key:data.api_key, spend_key:data.spend_key, view_key:data.view_key, onboarding:data.onboarding };
-      // remember key so the dashboard auto-signs in once active
+      _acct={ key:data.api_key, spend_key:data.spend_key, view_key:data.view_key };
+      // remember key so the dashboard auto-signs in
       try{ localStorage.setItem('lf_dash_key', data.api_key); }catch(e){}
-      renderActivation();
+      renderCreated();
     } catch(e) {
       btn.textContent='Retry';
       btn.disabled=false;
@@ -356,51 +326,19 @@
     }
   }
 
-  // Pay-to-activate: the gateway is created but inert until the Polygon USDC fee is paid.
-  function renderActivation(){
-    const ob=_acct.onboarding;
-    const amt=(Number(ob.amount)/Math.pow(10, ob.decimals||6));
+  function renderCreated(){
     const panel=document.querySelector('[data-panel="4"]');
     panel.innerHTML =
-      '<h1>Activate your gateway</h1>'
-      +'<div class="sub">Your gateway is created. Pay the <b>$'+amt+' / month</b> fee in <b>USDC on Polygon</b> to switch it on. Confirmation is automatic after the required mainnet finality.</div>'
-      +'<div class="apikey"><div class="lbl">Send exactly '+amt+' USDC on Polygon to</div>'
-      +'<div class="key"><span class="mono" id="obAddr" style="word-break:break-all">'+ob.deposit_address+'</span><button class="copy" onclick="copyText(\''+ob.deposit_address+'\',this)">Copy</button></div></div>'
-      +'<div class="hint" id="obStatus" style="margin-top:12px">⏳ Waiting for your payment… (checks automatically every few seconds)</div>'
-      +'<div class="hint" style="margin-top:8px">Use canonical native USDC on Polygon. This is a mainnet payment.</div>'
-      +'<div class="apikey" id="apiKeyBox" style="display:none;margin-top:16px"><div class="lbl">✅ Gateway active — your API key</div>'
-      +'<div class="key"><span id="apiKeyVal" class="mono"></span><button class="copy" onclick="copyText(document.getElementById(\'apiKeyVal\').textContent,this)">Copy</button></div></div>';
+      '<h1>Gateway ready</h1>'
+      +'<div class="sub">Your merchant gateway is active immediately. There is no subscription or activation payment.</div>'
+      +'<div class="apikey" id="apiKeyBox" style="margin-top:16px"><div class="lbl">Your API key</div>'
+      +'<div class="key"><span id="apiKeyVal" class="mono">'+_acct.key+'</span><button class="copy" onclick="copyText(document.getElementById(\'apiKeyVal\').textContent,this)">Copy</button></div></div>';
     document.getElementById('backBtn').style.display='none';
-    const btn=document.getElementById('nextBtn');
-    btn.textContent='Waiting for payment…'; btn.disabled=true;
-    pollActivation();
-  }
-
-  async function pollActivation(){
-    const ob=_acct.onboarding;
-    let tries=0;
-    const tick=async()=>{
-      tries++;
-      try{
-        const r=await fetch('/api/payments/'+ob.payment_id,{headers:{'Authorization':'Bearer '+_acct.key}});
-        const p=await r.json();
-        if(p.status==='confirmed'){ onActivated(); return; }
-        if(p.status==='expired'){ document.getElementById('obStatus').innerHTML='⚠️ Invoice expired. Please restart setup.'; return; }
-      }catch(e){}
-      if(tries<240) setTimeout(tick, 5000); // poll up to ~20 min
-    };
-    tick();
-  }
-
-  function onActivated(){
-    document.getElementById('obStatus').innerHTML='✅ Payment confirmed on-chain. Your gateway is now active.';
-    document.getElementById('apiKeyVal').textContent=_acct.key;
-    document.getElementById('apiKeyBox').style.display='block';
     if(_acct.spend_key){
       const note=document.createElement('div');
       note.className='warn-note'; note.style.marginTop='14px';
       note.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>'
-        +'<span><strong>Save your spend key now — it will not be shown again.</strong> You need it to sweep stealth deposits to your wallet.<br><code style="word-break:break-all;font-size:11px">'+_acct.spend_key+'</code></span>';
+        +'<span><strong>Save these recovery keys now — the spend key will not be shown again.</strong><br>Spend key: <code style="word-break:break-all;font-size:11px">'+_acct.spend_key+'</code><br>View key: <code style="word-break:break-all;font-size:11px">'+(_acct.view_key||'')+'</code></span>';
       document.getElementById('apiKeyBox').appendChild(note);
     }
     const btn=document.getElementById('nextBtn');
