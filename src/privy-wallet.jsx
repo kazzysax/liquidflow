@@ -102,8 +102,8 @@ function WalletPanel() {
   return <div className="wallet-console">
     <div className="wallet-console-head">
       <div>
-        <h3>Merchant wallet</h3>
-        <p>Balances from your primary and private payment wallets. LiquidFlow cannot move them.</p>
+        <h3>Withdraw assets</h3>
+        <p>Move VERSE, fxVERSE, or USDC from any funded Privy wallet to an address you choose. Only you can approve.</p>
       </div>
       <button className="btn btn-ghost btn-sm" onClick={refresh} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh balances'}</button>
     </div>
@@ -138,7 +138,8 @@ function WalletPanel() {
             <div><label>Send to</label><input className="lf-input mono" value={recipient} onChange={event => setRecipient(event.target.value)} placeholder="0x…" /></div>
             <div><label>Amount</label><input className="lf-input" value={amount} onChange={event => setAmount(event.target.value)} placeholder="0.00" inputMode="decimal" /></div>
           </div>
-          <button className="btn" onClick={transfer}>Review and send</button>
+          <button className="btn" onClick={transfer}>Review withdrawal</button>
+          <div className="wallet-gas-note">Network gas is paid by the selected wallet: ETH on Ethereum/Base and POL on Polygon.</div>
         </> : <div className="wallet-muted">Funded payment wallets will appear here automatically.</div>}
         <button className="wallet-signout" onClick={logout}>Sign out of Privy</button>
       </div>}
