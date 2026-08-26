@@ -6,6 +6,7 @@ const store  = require('../_lib/store');
 const { deriveDepositAddress } = require('../_lib/crypto');
 const ed = require('../_lib/stealth_ed25519');
 const { trackVerseEvent } = require('../_lib/verse-analytics');
+const privy = require('../_lib/privy');
 const { CHECKOUT_TTL_MS, ACTIVE_PAYMENT_STATUSES, checkAndConfirm, currentBlock, assetConfig, assetsForChain, assetOk, isValidBaseAmount, confirmedBalance, chainSupported, chainDisabledReason } = require('../_lib/chain');
 
 // Derive a stealth deposit address for the given chain from a recipient's meta-keys.
@@ -129,18 +130,33 @@ module.exports = async function handler(req, res) {
   const paymentId = 'pay_' + crypto.randomBytes(8).toString('hex');
   const expiresAt = Date.now() + CHECKOUT_TTL_MS;
 
-  let depositAddress, R = null, baselineBalance = null;
-  if (merchant.mode === 'stealth') {
+  let depositAddress, R = null, baselineBalance = null, privyWalletId = null;
+  const privyMerchant = Boolean(merchant.privyUserId && merchant.privyWalletAddress);
+  if (privyMerchant && merchant.mode === 'stealth') {
+    // Fresh payment wallet, owned by the merchant's Privy identity.
+    try {
+      const wallet = await privy.createPaymentWallet(merchant.privyUserId, paymentId);
+      depositAddress = wallet.walletAddress;
+      privyWalletId = wallet.walletId;
+    } catch (error) {
+      console.error('Privy payment wallet creation failed:', error && error.message);
+      return res.status(502).json({ error: 'could not create the merchant-owned payment wallet; please retry' });
+    }
+  } else if (merchant.mode === 'stealth') {
+    // Preserve the original key-derived model for legacy gateways.
     const result = deriveForChain(chain, merchant, paymentId);
     depositAddress = result.depositAddress;
     R = result.R; // stored server-side only — never returned to payer
   } else {
-    // Instant mode: funds go straight to the merchant's real payout address.
+    // Instant mode reuses the merchant's primary Privy wallet. Legacy gateways
+    // continue using their configured payout address.
     // No synthetic fallback — a hashed pseudo-address would be unspendable (lost funds).
-    if (!/^0x[0-9a-fA-F]{40}$/.test(String(merchant.payout || ''))) {
-      return res.status(400).json({ error: 'merchant has no valid payout address configured' });
+    const primaryAddress = privyMerchant ? merchant.privyWalletAddress : merchant.payout;
+    if (!/^0x[0-9a-fA-F]{40}$/.test(String(primaryAddress || ''))) {
+      return res.status(400).json({ error: 'merchant has no valid primary wallet configured' });
     }
-    depositAddress = merchant.payout;
+    depositAddress = primaryAddress;
+    privyWalletId = privyMerchant ? merchant.privyWalletId : null;
     // The payout wallet is reused across payments and carries a standing balance,
     // so confirmation must key off a RISE in balance, not the absolute amount.
     // Capture the baseline now; checkAndConfirm confirms only when bal >= baseline+amount.
@@ -184,6 +200,8 @@ module.exports = async function handler(req, res) {
     label: label || '',
     depositAddress,
     R,
+    privyWalletId,
+    walletProvider: privyMerchant ? 'PRIVY' : 'LEGACY',
     baselineBalance, // instant mode only — null for stealth (fresh address)
     mode: merchant.mode,
     status: 'awaiting_payment',

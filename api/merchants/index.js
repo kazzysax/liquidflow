@@ -3,7 +3,6 @@
 //   GET  — return the authenticated merchant's profile (for the dashboard)
 const crypto = require('crypto');
 const store  = require('../_lib/store');
-const { generateKeypair } = require('../_lib/crypto');
 const { isPublicHttpUrl } = require('../_lib/webhook');
 const { trackVerseEvent } = require('../_lib/verse-analytics');
 const privy = require('../_lib/privy');
@@ -44,8 +43,9 @@ module.exports = async function handler(req, res) {
       settle:      m.settle || 'AS_RECEIVED',
       unify:       m.unify === true,
       dex:         m.dex || null,
-      payout:      m.payout || null,
+      payout:      m.privyUserId ? null : (m.payout || null),
       email:       m.email || null,
+      privy_user_id: m.privyUserId || null,
       settlement:  privy.settlementView(m),
       webhook_url: m.webhookUrl || null,
       webhook_secret: m.webhookSecret,
@@ -58,7 +58,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
   const {
-    name, email, chains, settle, unify, dex, mode, payout, webhook,
+    name, email, chains, settle, unify, dex, mode, webhook,
   } = req.body || {};
 
   // --- Gating: no silent defaults for essentials. Reject incomplete/unsafe signups. ---
@@ -67,7 +67,7 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'name is required' });
   }
   const normalizedEmail = String(email || '').trim().toLowerCase();
-  if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(normalizedEmail)) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
     return res.status(400).json({ error: 'a valid merchant email is required for the merchant-owned Privy wallet' });
   }
   if (!isUrl(webhook)) {
@@ -96,10 +96,6 @@ module.exports = async function handler(req, res) {
   if (String(settle).toUpperCase() === 'AS_RECEIVED' && unify === true) {
     return res.status(400).json({ error: 'AS_RECEIVED settlement cannot enable liquidity unification' });
   }
-  if (!/^0x[0-9a-fA-F]{40}$/.test(String(payout || ''))) {
-    return res.status(400).json({ error: 'a valid EVM sweep / payout wallet is required' });
-  }
-
   const normalizedDex = unify ? String(dex || '').trim() : null;
   if (unify && normalizedDex !== 'LIQUIDFLOW_APPROVED_ROUTES') {
     return res.status(400).json({ error: 'liquidity unification requires the LiquidFlow approved route provider' });
@@ -116,6 +112,9 @@ module.exports = async function handler(req, res) {
     console.error('Privy merchant provisioning failed:', error && error.message);
     return res.status(502).json({ error: 'merchant wallet provisioning failed; no gateway was created' });
   }
+  if (!privyMerchant) {
+    return res.status(503).json({ error: 'merchant wallet service is unavailable; no gateway was created' });
+  }
 
   const merchant = {
     id: merchantId,
@@ -129,27 +128,15 @@ module.exports = async function handler(req, res) {
     settle: String(settle).toUpperCase(),
     unify,
     dex: normalizedDex,
-    payout: String(payout),
-    settlementProvider: 'PRIVY_DELEGATED',
+    payout: null,
+    settlementProvider: 'PRIVY_USER_OWNED',
     privyUserId: privyMerchant && privyMerchant.userId,
     privyWalletId: privyMerchant && privyMerchant.walletId,
     privyWalletAddress: privyMerchant && privyMerchant.walletAddress,
-    privyDelegated: Boolean(privyMerchant && privyMerchant.delegated),
-    privyPolicyId: null,
     status: 'active',
     activatedAt: Date.now(),
     createdAt: Date.now(),
   };
-
-  let spendKey = null, viewKey = null;
-  if (mode === 'stealth') {
-    const kp = generateKeypair();              // secp256k1 — supported EVM mainnets
-    merchant.P_spend = kp.P_spend;
-    merchant.P_view  = kp.P_view;
-    merchant.k_view  = kp.k_view;
-    spendKey = kp.k_spend;
-    viewKey = kp.k_view;
-  }
 
   await store.set(`merchant:${apiKeyVal}`, merchant);
   await trackVerseEvent('Merchant Created', { mode, settle, chains: chains.join(',') });
@@ -162,11 +149,6 @@ module.exports = async function handler(req, res) {
     status: 'active',
     settlement: privy.settlementView(merchant),
   };
-  if (spendKey) {
-    resp.spend_key          = spendKey;     // Ethereum / Polygon / Base
-    resp.view_key           = viewKey;
-    resp.spend_key_note = 'Save spend_key offline now — it is never stored by LiquidFlow and cannot be recovered. view_key is also required by the offline sweep tool and remains available through the authenticated recovery endpoint.';
-  }
 
   return res.status(201).json(resp);
 };

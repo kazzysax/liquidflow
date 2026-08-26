@@ -156,7 +156,7 @@
           </div>
           <div class="warn-note" id="unifyWarn" style="display:none">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-            <span>LiquidFlow never signs or holds swap keys. In private mode, sweep the confirmed deposit first, then approve the protected route from your merchant wallet.</span>
+            <span>LiquidFlow never signs or holds swap keys. Sign in with your merchant Privy identity to approve a protected route from the wallet holding the asset.</span>
           </div>
         </div>
 
@@ -180,24 +180,24 @@
           <div style="display:flex;flex-direction:column;gap:9px">
             <button class="opt" aria-pressed="false" data-v="instant" onclick="pickMode(this)" style="justify-content:flex-start">
               <span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span>
-              <span class="nm">Instant forward<span class="meta">One gate address, funds forwarded to you instantly. Public & fast.</span></span>
+              <span class="nm">Instant forward<span class="meta">One primary Privy address owned by your merchant account. Public and fast.</span></span>
             </button>
             <button class="opt" aria-pressed="true" data-v="stealth" onclick="pickMode(this)" style="justify-content:flex-start">
               <span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span>
-              <span class="nm">Private (stealth)<span class="meta">Fresh unlinkable address per payment. You sweep later. Hides your balance.</span></span>
+              <span class="nm">Private (stealth)<span class="meta">Fresh merchant-owned Privy address per payment. Hides your primary balance.</span></span>
             </button>
           </div>
           <div class="privacy-note" id="privNote" style="display:flex">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2" style="flex-shrink:0;margin-top:1px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-            <span>Private mode: you publish a stealth key once at setup — no action needed per payment. Amounts stay visible so confirmations and tracking still work; payer↔you links are hidden. You sweep funds with your own key on your schedule.</span>
+            <span>Private mode creates a fresh address under your Privy account for every checkout. LiquidFlow can verify the payment but cannot move the funds; you manage every wallet from your dashboard.</span>
           </div>
         </div>
       </div>
 
-      <!-- STEP 4: payout + webhook -->
+      <!-- STEP 4: merchant identity + webhook -->
       <div class="panel" data-panel="3">
-        <h1>Payout &amp; notifications</h1>
-        <div class="sub">Choose where funds go and where LiquidFlow notifies your application. Merchant gateways activate immediately with no subscription fee.</div>
+        <h1>Merchant wallet &amp; notifications</h1>
+        <div class="sub">Your email owns the Privy wallets that receive funds. Add the endpoint where LiquidFlow should notify your application.</div>
 
         <div class="field">
           <label>Merchant or application name</label>
@@ -210,13 +210,6 @@
           <div class="hint">Used to create the merchant-owned Privy settlement wallet. The merchant controls access.</div>
           <input type="text" id="merchantEmail" required autocomplete="email" placeholder="you@yourbusiness.com">
         </div>
-
-        <div class="field">
-          <label>Sweep / payout wallet</label>
-          <div class="hint">Your permanent final destination. The merchant-owned Privy vault can only settle approved assets to this address.</div>
-          <input type="text" class="mono" id="payout" required placeholder="0x… your external wallet address">
-        </div>
-
         <div class="field">
           <label>Webhook URL</label>
           <div class="hint">Where we send "payment confirmed" so your platform releases the service.</div>
@@ -244,7 +237,7 @@
 
 <script>
   let step=0; const TOTAL=5;
-  const cfg={ name:'', email:'', chains:['eip155:1','eip155:137','eip155:8453'], settle:'AS_RECEIVED', unify:false, dex:null, mode:'stealth', payout:'', webhook:'' };
+  const cfg={ name:'', email:'', chains:['eip155:1','eip155:137','eip155:8453'], settle:'AS_RECEIVED', unify:false, dex:null, mode:'stealth', webhook:'' };
 
   // multi-select grids
   function bindGrid(id, key){
@@ -294,7 +287,6 @@
   function renderReview(){
     cfg.name=document.getElementById('merchantName').value.trim();
     cfg.email=document.getElementById('merchantEmail').value.trim();
-    cfg.payout=document.getElementById('payout').value;
     cfg.webhook=document.getElementById('webhook').value;
     cfg.settle=document.getElementById('settleCur').value;
     const rows=[
@@ -303,9 +295,8 @@
       ['Chains', cfg.chains.join(', ')||'—'],
       ['Settlement currency', cfg.settle],
       ['Liquidity unification', cfg.unify?('On · via '+cfg.dex):'Off (funds stay as sent)'],
-      ['Privacy mode', cfg.mode==='stealth'?'Private (stealth addresses)':'Instant forward (public)'],
-      ['Privy settlement', 'Merchant-owned vault → registered sweep wallet'],
-      ['Final sweep wallet', cfg.payout? cfg.payout.slice(0,10)+'…'+cfg.payout.slice(-6):'—'],
+      ['Privacy mode', cfg.mode==='stealth'?'Private (fresh Privy wallet per payment)':'Instant (primary Privy wallet)'],
+      ['Wallet custody', 'Merchant-owned through Privy · no sweep address required'],
       ['Webhook', cfg.webhook||'—'],
     ];
     document.getElementById('reviewRows').innerHTML=rows.map(([k,v])=>
@@ -328,11 +319,9 @@
     if(step===3){
       const name=document.getElementById('merchantName').value.trim();
       const email=document.getElementById('merchantEmail').value.trim();
-      const payout=document.getElementById('payout').value.trim();
       const webhook=document.getElementById('webhook').value.trim();
       if(!name){ alert('Merchant or application name is required.'); return false; }
-      if(!/^[^s@]+@[^s@]+.[^s@]+$/.test(email)){ alert('Enter a valid merchant email for the merchant-owned Privy wallet.'); return false; }
-      if(!/^0x[0-9a-fA-F]{40}$/.test(payout)){ alert('Enter a valid EVM sweep / payout wallet.'); return false; }
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert('Enter a valid merchant email for the merchant-owned Privy wallet.'); return false; }
       try{ const u=new URL(webhook); if(u.protocol!=='https:') throw new Error(); }
       catch(e){ alert('Enter a live HTTPS webhook endpoint.'); return false; }
     }
@@ -350,14 +339,13 @@
     window.scrollTo({top:0,behavior:'smooth'});
   }
 
-  let _acct=null; // { key, spend_key, view_key }
+  let _acct=null; // { key, settlement }
 
   async function createSystem(){
     const btn=document.getElementById('nextBtn');
     btn.textContent='Creating…'; btn.disabled=true;
     cfg.name=document.getElementById('merchantName').value.trim();
     cfg.email=document.getElementById('merchantEmail').value.trim();
-    cfg.payout=document.getElementById('payout').value.trim();
     cfg.webhook=document.getElementById('webhook').value.trim();
     cfg.settle=document.getElementById('settleCur').value;
     cfg.dex=cfg.unify?cfg.dex:null;
@@ -369,7 +357,7 @@
       });
       if(!res.ok){const e=await res.json();throw new Error(e.error||'server error');}
       const data=await res.json();
-      _acct={ key:data.api_key, spend_key:data.spend_key, view_key:data.view_key, settlement:data.settlement };
+      _acct={ key:data.api_key, settlement:data.settlement };
       // remember key so the dashboard auto-signs in
       try{ localStorage.setItem('lf_dash_key', data.api_key); }catch(e){}
       renderCreated();
@@ -390,17 +378,10 @@
     if(_acct.settlement){
       const wallet=document.createElement('div');
       wallet.className='privacy-note'; wallet.style.marginTop='14px';
-      wallet.innerHTML='<span><strong>Merchant-owned Privy settlement</strong><br>Vault: <code style="word-break:break-all;font-size:11px">'+(_acct.settlement.vault_wallet||'Provisioning unavailable')+'</code><br>Final destination: your registered sweep wallet.<br>Automatic access remains locked until restricted delegation is authorized.</span>';
+      wallet.innerHTML='<span><strong>Your merchant-owned Privy wallet</strong><br>Primary address: <code style="word-break:break-all;font-size:11px">'+(_acct.settlement.primary_wallet||_acct.settlement.vault_wallet||'Provisioning unavailable')+'</code><br>Payments remain under your Privy account. Sign in on the dashboard whenever you want to move them.</span>';
       panel.appendChild(wallet);
     }
     document.getElementById('backBtn').style.display='none';
-    if(_acct.spend_key){
-      const note=document.createElement('div');
-      note.className='warn-note'; note.style.marginTop='14px';
-      note.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>'
-        +'<span><strong>Save these recovery keys now — the spend key will not be shown again.</strong><br>Spend key: <code style="word-break:break-all;font-size:11px">'+_acct.spend_key+'</code><br>View key: <code style="word-break:break-all;font-size:11px">'+(_acct.view_key||'')+'</code></span>';
-      document.getElementById('apiKeyBox').appendChild(note);
-    }
     const btn=document.getElementById('nextBtn');
     btn.textContent='Go to dashboard →'; btn.disabled=false;
     btn.onclick=()=>{ window.location.href='dashboard.html'; };

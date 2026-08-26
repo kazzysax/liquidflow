@@ -6,19 +6,30 @@
     "node": "24.x"
   },
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "build:wallet": "esbuild src/privy-wallet.jsx --bundle --minify --format=iife --outfile=privy-wallet.bundle.js"
   },
   "dependencies": {
     "@hpke/common": "^1.10.1",
     "@noble/curves": "^1.9.7",
     "@noble/hashes": "^1.8.0",
     "@privy-io/node": "^0.31.0",
+    "@privy-io/react-auth": "^3.38.0",
     "@scure/base": "^1.2.6",
     "@upstash/redis": "^1.38.0",
     "ethers": "^6.17.0",
-    "svix": "1.98.0"
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "svix": "1.98.0",
+    "viem": "^2.55.15"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "solc": "^0.8.28"
+  },
+  "overrides": {
+    "axios": "1.20.0",
+    "ws": "8.21.3",
+    "uuid": "11.1.1"
   }
 }

@@ -4,13 +4,6 @@ function configured() {
   return Boolean(process.env.PRIVY_APP_ID && process.env.PRIVY_APP_SECRET);
 }
 
-function delegationConfigured() {
-  return Boolean(
-    configured()
-    && process.env.PRIVY_AUTHORIZATION_PRIVATE_KEY
-    && process.env.PRIVY_SETTLEMENT_POLICY_ID
-  );
-}
 
 async function getClient() {
   if (!configured()) return null;
@@ -40,12 +33,11 @@ async function provisionMerchant(email, merchantId) {
     });
   }
 
-  // The user is the wallet owner. LiquidFlow is not the owner and cannot sign
-  // until the merchant explicitly adds the restricted delegated signer.
+  // The user is the wallet owner. LiquidFlow never receives or stores the key.
   const wallet = await privy.wallets().create({
     chain_type: 'ethereum',
     owner: { user_id: user.id },
-    display_name: 'LiquidFlow merchant settlement vault',
+    display_name: 'LiquidFlow merchant wallet',
     external_id: merchantId,
     idempotency_key: merchantId,
   });
@@ -54,31 +46,53 @@ async function provisionMerchant(email, merchantId) {
     userId: user.id,
     walletId: wallet.id,
     walletAddress: wallet.address,
-    delegated: false,
   };
+}
+
+async function createPaymentWallet(userId, paymentId) {
+  const privy = await getClient();
+  if (!privy) throw new Error('Privy is not configured');
+  if (!userId || !paymentId) throw new Error('Privy user and payment ID are required');
+
+  const wallet = await privy.wallets().create({
+    chain_type: 'ethereum',
+    owner: { user_id: userId },
+    display_name: `LiquidFlow private payment ${paymentId}`,
+    external_id: paymentId,
+    idempotency_key: paymentId,
+  });
+  return { walletId: wallet.id, walletAddress: wallet.address };
 }
 
 function settlementView(merchant) {
   const walletAddress = merchant && merchant.privyWalletAddress;
-  const delegated = merchant && merchant.privyDelegated === true;
-  let status = 'not_provisioned';
-  if (walletAddress && !delegationConfigured()) status = 'awaiting_platform_authorization';
-  if (walletAddress && delegationConfigured() && !delegated) status = 'awaiting_merchant_consent';
-  if (walletAddress && delegationConfigured() && delegated) status = 'active';
+  if (!merchant || !merchant.privyUserId) {
+    return {
+      provider: 'LEGACY',
+      custody: 'merchant_controlled',
+      status: 'legacy',
+      primary_wallet: (merchant && merchant.payout) || null,
+      sweep_wallet: (merchant && merchant.payout) || null,
+      automatic_sweep: false,
+      control: 'legacy merchant keys',
+    };
+  }
   return {
     provider: 'PRIVY',
     custody: 'merchant_owned',
-    status,
+    status: walletAddress ? 'active' : 'not_provisioned',
+    primary_wallet: walletAddress || null,
     vault_wallet: walletAddress || null,
-    sweep_wallet: (merchant && merchant.payout) || null,
-    automatic_sweep: status === 'active',
-    restriction: 'approved assets may only settle to the registered sweep wallet',
+    sweep_wallet: null,
+    automatic_sweep: false,
+    control: 'merchant_only',
+    restriction: 'Only the authenticated merchant can sign transfers from these Privy wallets.',
   };
 }
 
 module.exports = {
   configured,
-  delegationConfigured,
   provisionMerchant,
+  createPaymentWallet,
   settlementView,
 };

@@ -4,6 +4,12 @@ const assert = require('node:assert/strict');
 process.env.DISABLE_VERSE_ANALYTICS = '1';
 
 const store = require('../api/_lib/store');
+const privy = require('../api/_lib/privy');
+privy.provisionMerchant = async (email, merchantId) => ({
+  userId: 'did:privy:test-merchant',
+  walletId: 'wallet_test_merchant',
+  walletAddress: '0x2222222222222222222222222222222222222222',
+});
 const merchantHandler = require('../api/merchants');
 const { checkAndConfirm } = require('../api/_lib/chain');
 
@@ -31,7 +37,6 @@ test('new merchant gateways activate immediately without a subscription invoice'
       mode: 'stealth',
       unify: false,
       dex: null,
-      payout: '0x1111111111111111111111111111111111111111',
       webhook: 'https://example.com/api/liquidflow/webhook',
     },
   };
@@ -43,12 +48,38 @@ test('new merchant gateways activate immediately without a subscription invoice'
   assert.equal('onboarding' in res.body, false);
   assert.equal('plan' in res.body, false);
   assert.match(res.body.api_key, /^lf_live_/);
-  assert.ok(res.body.spend_key);
-  assert.ok(res.body.view_key);
+  assert.equal('spend_key' in res.body, false);
+  assert.equal('view_key' in res.body, false);
   assert.equal(res.body.settlement.provider, 'PRIVY');
-  assert.equal(res.body.settlement.sweep_wallet, req.body.payout);
+  assert.equal(res.body.settlement.primary_wallet, '0x2222222222222222222222222222222222222222');
+  assert.equal(res.body.settlement.sweep_wallet, null);
+  assert.equal(res.body.settlement.control, 'merchant_only');
 });
 
+test('signup fails closed when the merchant wallet cannot be provisioned', async () => {
+  const provision = privy.provisionMerchant;
+  privy.provisionMerchant = async () => null;
+  const res = responseCapture();
+  try {
+    await merchantHandler({
+      method: 'POST',
+      headers: {},
+      body: {
+        name: 'No Wallet Merchant',
+        email: 'nowallet@example.com',
+        chains: ['eip155:1'],
+        settle: 'AS_RECEIVED',
+        mode: 'stealth',
+        unify: false,
+        webhook: 'https://example.com/webhook',
+      },
+    }, res);
+  } finally {
+    privy.provisionMerchant = provision;
+  }
+  assert.equal(res.code, 503);
+  assert.match(res.body.error, /wallet service is unavailable/);
+});
 test('legacy pending merchant keys are released without payment', async () => {
   const key = 'lf_live_legacy_subscription';
   await store.set(`merchant:${key}`, {
