@@ -6,6 +6,7 @@ const store  = require('../_lib/store');
 const { isPublicHttpUrl } = require('../_lib/webhook');
 const { trackVerseEvent } = require('../_lib/verse-analytics');
 const privy = require('../_lib/privy');
+const { buildPortfolio } = require('../_lib/portfolio');
 const MAINNET_CHAINS = new Set(['eip155:1', 'eip155:137', 'eip155:8453']);
 
 function cors(res) {
@@ -27,6 +28,9 @@ module.exports = async function handler(req, res) {
     const key = apiKey(req);
     const m = await store.get(`merchant:${key}`);
     if (!m) return res.status(401).json({ error: 'invalid api key' });
+    if (req.query && req.query.view === 'portfolio') {
+      return res.status(200).json(await buildPortfolio(m, key));
+    }
     // Subscription gating was removed. Release legacy merchants that were waiting
     // for the old onboarding invoice as soon as they authenticate.
     if (m.status === 'pending_activation') {

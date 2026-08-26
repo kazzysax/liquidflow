@@ -34,7 +34,7 @@ function WalletPanel() {
     if (!profile?.apiKey) return;
     setLoading(true);
     try {
-      const response = await fetch('/api/portfolio', {
+      const response = await fetch('/api/merchants?view=portfolio', {
         headers: { Authorization: `Bearer ${profile.apiKey}` },
       });
       const data = await response.json();
@@ -151,11 +151,8 @@ async function boot() {
   const target = document.getElementById('privyWalletApp');
   if (!target) return;
   try {
-    const response = await fetch('/api/config');
-    const config = await response.json();
-    if (!response.ok) throw new Error(config.error || 'Privy is unavailable');
     createRoot(target).render(
-      <PrivyProvider appId={config.privy_app_id} config={{
+      <PrivyProvider appId="cmt9nicuv01zk0dl1eog8bsvx" config={{
         loginMethods: ['email'],
         defaultChain: mainnet,
         supportedChains: [mainnet, polygon, base],

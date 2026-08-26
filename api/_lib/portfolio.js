@@ -1,26 +1,9 @@
-const store = require('../_lib/store');
-const { assetsForChain, confirmedBalance } = require('../_lib/chain');
+const store = require('./store');
+const { assetsForChain, confirmedBalance } = require('./chain');
 
-function cors(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-}
-
-function apiKey(req) {
-  return (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-}
-
-module.exports = async function handler(req, res) {
-  cors(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET') return res.status(405).json({ error: 'method not allowed' });
-
-  const key = apiKey(req);
-  const merchant = await store.get(`merchant:${key}`);
-  if (!merchant) return res.status(401).json({ error: 'invalid api key' });
+async function buildPortfolio(merchant, key) {
   if (!merchant.privyUserId || !merchant.privyWalletAddress) {
-    return res.status(200).json({ provider: 'LEGACY', wallets: [], balances: [], errors: [] });
+    return { provider: 'LEGACY', wallets: [], holdings: [], balances: [], errors: [] };
   }
 
   const targets = new Map();
@@ -32,15 +15,12 @@ module.exports = async function handler(req, res) {
     targets.set(id, { address, wallet_id: walletId || null, kind, chain, asset: cfg.symbol, decimals: cfg.decimals, contract: cfg.contract });
   };
 
-  // The primary wallet can receive any enabled LiquidFlow asset.
   for (const chain of merchant.chains || []) {
     for (const cfg of assetsForChain(chain)) {
       addTarget(merchant.privyWalletAddress, merchant.privyWalletId, 'primary', chain, cfg.symbol);
     }
   }
 
-  // Private checkout wallets are scoped to the asset/network of their invoice.
-  // Newest-first and bounded keeps the endpoint responsive on serverless hosting.
   const ids = await store.smembers(`merchant:${key}:payments`);
   const payments = [];
   for (const id of ids) {
@@ -66,25 +46,33 @@ module.exports = async function handler(req, res) {
   const totals = new Map();
   for (const item of holdings) {
     const id = `${item.chain}:${item.asset}`;
-    const prev = totals.get(id) || { chain: item.chain, asset: item.asset, decimals: item.decimals, contract: item.contract, amount: 0n };
-    prev.amount += BigInt(item.amount_base);
-    totals.set(id, prev);
+    const previous = totals.get(id) || { chain: item.chain, asset: item.asset, decimals: item.decimals, contract: item.contract, amount: 0n };
+    previous.amount += BigInt(item.amount_base);
+    totals.set(id, previous);
   }
-
+  const balances = [...totals.values()].map(item => ({
+    chain: item.chain,
+    asset: item.asset,
+    decimals: item.decimals,
+    contract: item.contract,
+    amount_base: item.amount.toString(),
+  }));
   const wallets = [...new Map(holdings.map(item => [item.address.toLowerCase(), {
     address: item.address,
     wallet_id: item.wallet_id,
     kind: item.kind,
   }])).values()];
 
-  return res.status(200).json({
+  return {
     provider: 'PRIVY',
     custody: 'merchant_owned',
     wallets,
     holdings,
-    balances: [...totals.values()].map(item => ({ ...item, amount_base: item.amount.toString(), amount: undefined })),
+    balances,
     payment_wallets_total: payments.length,
     payment_wallets_scanned: Math.min(payments.length, 50),
     errors: [...new Set(errors)],
-  });
-};
+  };
+}
+
+module.exports = { buildPortfolio };
