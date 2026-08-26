@@ -6,6 +6,7 @@ const store  = require('../_lib/store');
 const { generateKeypair } = require('../_lib/crypto');
 const { isPublicHttpUrl } = require('../_lib/webhook');
 const { trackVerseEvent } = require('../_lib/verse-analytics');
+const privy = require('../_lib/privy');
 const MAINNET_CHAINS = new Set(['eip155:1', 'eip155:137', 'eip155:8453']);
 
 function cors(res) {
@@ -44,6 +45,8 @@ module.exports = async function handler(req, res) {
       unify:       m.unify === true,
       dex:         m.dex || null,
       payout:      m.payout || null,
+      email:       m.email || null,
+      settlement:  privy.settlementView(m),
       webhook_url: m.webhookUrl || null,
       webhook_secret: m.webhookSecret,
       status:      'active',
@@ -55,13 +58,17 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
   const {
-    name, chains, settle, unify, dex, mode, payout, webhook,
+    name, email, chains, settle, unify, dex, mode, payout, webhook,
   } = req.body || {};
 
   // --- Gating: no silent defaults for essentials. Reject incomplete/unsafe signups. ---
   const isUrl = (u) => { try { return new URL(u).protocol === 'https:'; } catch { return false; } };
   if (!name || !String(name).trim()) {
     return res.status(400).json({ error: 'name is required' });
+  }
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(normalizedEmail)) {
+    return res.status(400).json({ error: 'a valid merchant email is required for the merchant-owned Privy wallet' });
   }
   if (!isUrl(webhook)) {
     return res.status(400).json({ error: 'a valid webhook URL (https) is required so you receive payment confirmations' });
@@ -102,9 +109,18 @@ module.exports = async function handler(req, res) {
   const apiKeyVal     = 'lf_live_' + crypto.randomBytes(16).toString('hex');
   const webhookSecret = 'whsec_' + crypto.randomBytes(16).toString('hex');
 
+  let privyMerchant = null;
+  try {
+    privyMerchant = await privy.provisionMerchant(normalizedEmail, merchantId);
+  } catch (error) {
+    console.error('Privy merchant provisioning failed:', error && error.message);
+    return res.status(502).json({ error: 'merchant wallet provisioning failed; no gateway was created' });
+  }
+
   const merchant = {
     id: merchantId,
     name: String(name).trim(),
+    email: normalizedEmail,
     apiKey: apiKeyVal,
     webhookUrl: webhook,
     webhookSecret,
@@ -114,6 +130,12 @@ module.exports = async function handler(req, res) {
     unify,
     dex: normalizedDex,
     payout: String(payout),
+    settlementProvider: 'PRIVY_DELEGATED',
+    privyUserId: privyMerchant && privyMerchant.userId,
+    privyWalletId: privyMerchant && privyMerchant.walletId,
+    privyWalletAddress: privyMerchant && privyMerchant.walletAddress,
+    privyDelegated: Boolean(privyMerchant && privyMerchant.delegated),
+    privyPolicyId: null,
     status: 'active',
     activatedAt: Date.now(),
     createdAt: Date.now(),
@@ -138,6 +160,7 @@ module.exports = async function handler(req, res) {
     webhook_secret: webhookSecret,
     mode,
     status: 'active',
+    settlement: privy.settlementView(merchant),
   };
   if (spendKey) {
     resp.spend_key          = spendKey;     // Ethereum / Polygon / Base

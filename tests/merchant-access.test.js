@@ -25,6 +25,7 @@ test('new merchant gateways activate immediately without a subscription invoice'
     headers: {},
     body: {
       name: 'Audit Merchant',
+      email: 'merchant@example.com',
       chains: ['eip155:1'],
       settle: 'VERSE',
       mode: 'stealth',
@@ -44,6 +45,8 @@ test('new merchant gateways activate immediately without a subscription invoice'
   assert.match(res.body.api_key, /^lf_live_/);
   assert.ok(res.body.spend_key);
   assert.ok(res.body.view_key);
+  assert.equal(res.body.settlement.provider, 'PRIVY');
+  assert.equal(res.body.settlement.sweep_wallet, req.body.payout);
 });
 
 test('legacy pending merchant keys are released without payment', async () => {

@@ -73,6 +73,7 @@
   .fg label{font-size:12px;font-weight:500;display:block;margin-bottom:6px}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .secretbox{margin-top:14px;background:var(--cloud);border:1px dashed #C2CCDD;border-radius:10px;padding:11px;font-family:var(--mono);font-size:10.5px;word-break:break-all;color:var(--ink-2)}
+  .settlement{margin-bottom:22px}.settlement-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}.settlement-item{background:var(--cloud);border:1px solid var(--line-2);border-radius:11px;padding:12px}.settlement-item .k{font-size:11px;color:var(--ink-2);margin-bottom:5px}.settlement-item .v{font-size:12px;font-weight:500;word-break:break-all}.settlement-note{font-size:12px;color:var(--ink-2);margin-top:11px}@media(max-width:720px){.settlement-grid{grid-template-columns:1fr}}
   .dex-card{margin-top:18px}.dex-head{display:flex;justify-content:space-between;align-items:start;gap:18px;margin-bottom:16px}.dex-head h2{margin-bottom:4px}.dex-head p{font-size:12px;color:var(--ink-2);max-width:660px}.dex-form{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr .8fr;gap:10px;align-items:end}.dex-actions{display:flex;gap:9px;margin-top:12px;flex-wrap:wrap}.dex-result{display:none;margin-top:14px;padding:13px 15px;border:1px solid var(--line);border-radius:11px;background:var(--cloud);font-size:12px}.dex-result.show{display:block}.dex-result b{color:var(--ink)}.dex-status{font-size:12px;color:var(--ink-2);margin-top:10px}.dex-status.ok{color:var(--ok-tx)}.dex-status.bad{color:#A32D2D}@media(max-width:900px){.dex-form{grid-template-columns:1fr 1fr}}@media(max-width:520px){.dex-form{grid-template-columns:1fr}}
 </style>
 </head>
@@ -115,6 +116,16 @@
       <div class="stat"><div class="k">Confirmed</div><div class="v" id="sConf">0</div></div>
       <div class="stat"><div class="k">Awaiting</div><div class="v" id="sPend">0</div></div>
       <div class="stat"><div class="k">Confirmed volume</div><div class="v" id="sVol">0</div></div>
+    </div>
+
+    <div class="card settlement" id="settlementCard">
+      <h2>Merchant-owned settlement <span class="badge b-wait" id="settlementBadge">checking</span></h2>
+      <div class="settlement-grid">
+        <div class="settlement-item"><div class="k">Privy vault</div><div class="v mono" id="privyVault">—</div></div>
+        <div class="settlement-item"><div class="k">Final sweep wallet</div><div class="v mono" id="sweepWallet">—</div></div>
+        <div class="settlement-item"><div class="k">Access model</div><div class="v" id="settlementAccess">Merchant owned · restricted</div></div>
+      </div>
+      <div class="settlement-note" id="settlementNote">LiquidFlow cannot redirect settlement to another recipient.</div>
     </div>
 
     <div class="grid">
@@ -215,9 +226,21 @@
     sb.style.display='block';
     sb.innerHTML='<b style="color:var(--ink)">Webhook secret</b><br>'+(m.webhook_secret||'—')
       +'<br><b style="color:var(--ink)">API key</b><br>'+KEY;
+    renderSettlement(m.settlement||{});
     refresh();
     if(timer) clearInterval(timer);
     timer=setInterval(refresh, 8000);
+  }
+
+  function renderSettlement(s){
+    document.getElementById('privyVault').textContent=s.vault_wallet||'Not provisioned for this legacy gateway';
+    document.getElementById('sweepWallet').textContent=s.sweep_wallet||'—';
+    var badge=document.getElementById('settlementBadge');
+    var labels={active:'active',awaiting_merchant_consent:'merchant approval needed',awaiting_platform_authorization:'authorization setup pending',not_provisioned:'migration needed'};
+    badge.textContent=labels[s.status]||'setup pending';
+    badge.className='badge '+(s.status==='active'?'b-ok':'b-wait');
+    document.getElementById('settlementAccess').textContent=s.automatic_sweep?'Restricted automatic sweep':'Merchant owned · automatic access locked';
+    document.getElementById('settlementNote').textContent=s.restriction||'Approved assets may only settle to the registered sweep wallet.';
   }
 
   async function refresh(){
