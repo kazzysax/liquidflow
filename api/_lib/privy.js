@@ -1,5 +1,3 @@
-const { PrivyClient } = require('@privy-io/node');
-
 let client;
 
 function configured() {
@@ -14,9 +12,12 @@ function delegationConfigured() {
   );
 }
 
-function getClient() {
+async function getClient() {
   if (!configured()) return null;
   if (!client) {
+    // Use Privy's ESM entry. Its CommonJS dependency path currently ships
+    // incomplete HPKE files on clean serverless installs.
+    const { PrivyClient } = await import('@privy-io/node');
     client = new PrivyClient({
       appId: process.env.PRIVY_APP_ID,
       appSecret: process.env.PRIVY_APP_SECRET,
@@ -26,7 +27,7 @@ function getClient() {
 }
 
 async function provisionMerchant(email, merchantId) {
-  const privy = getClient();
+  const privy = await getClient();
   if (!privy) return null;
   const normalizedEmail = String(email || '').trim().toLowerCase();
   let user;
