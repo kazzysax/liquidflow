@@ -40,7 +40,7 @@
   .foot{font-size:11.5px;color:var(--ink-2);text-align:center;margin-top:18px;line-height:1.5}
   .spinner{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--flow);border-radius:50%;animation:spin .8s linear infinite;margin:40px auto}
   @keyframes spin{to{transform:rotate(360deg)}}
-</style>
+  .choose{text-align:center}.choose h1,.success-stage h1{font-family:var(--display);font-size:27px;line-height:1.15;letter-spacing:-.7px}.choose-sub,.success-stage p{color:var(--ink-2);font-size:13px;margin:7px 0 20px}.coin-grid{display:grid;gap:10px;text-align:left}.coin-option{width:100%;display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:#fff;border-radius:13px;padding:13px 14px;cursor:pointer;transition:.18s}.coin-option:hover{border-color:var(--flow);background:#F7F9FF;transform:translateY(-1px)}.coin-icon{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--flow),#765BFF);color:#fff;font-weight:800}.coin-copy{flex:1}.coin-copy b{display:block;font-size:14px}.coin-copy span{display:block;font-size:11.5px;color:var(--ink-2)}.coin-arrow{color:var(--flow);font-size:20px}.loading-stage{text-align:center;padding:46px 0 36px}.loading-stage .spinner{margin:0 auto 18px}.loading-stage h2{font:600 20px var(--display)}.loading-stage p{font-size:12px;color:var(--ink-2);margin-top:5px}.confirm-note{text-align:center;color:var(--ink-2);font-size:11.5px;margin-top:12px}.success-stage{text-align:center;padding:20px 0 8px}.success-mark{width:76px;height:76px;border-radius:50%;background:var(--ok-bg);color:var(--ok-tx);display:grid;place-items:center;margin:0 auto 20px;font-size:42px;font-weight:700;animation:successPop .45s ease both}.success-stage .receipt{border:0;background:transparent;padding:0;margin-top:18px}.success-stage .receipt-actions{justify-content:center}.success-stage .receipt-btn{min-width:170px;background:var(--ok-tx);border-color:var(--ok-tx);color:#fff;padding:11px 18px}.success-stage .receipt-btn:hover{background:#0B5B47}.success-stage .spinner{width:20px;height:20px;margin:16px auto}.card.payment-card{animation:cardIn .28s ease both}@keyframes cardIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}@keyframes successPop{0%{opacity:0;transform:scale(.7)}70%{transform:scale(1.08)}100%{opacity:1;transform:scale(1)}}</style>
 </head>
 <body>
   <div class="brand"><svg width="24" height="24" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="#D7E7F9" stroke-width="3.5"/><path d="M5 28 a23 23 0 0 1 46 0" fill="none" stroke="#1E5BFF" stroke-width="3.5" stroke-linecap="round"/><path d="M28 15 C33 23,37 28,37 33 a9 9 0 0 1 -18 0 C19 28,23 23,28 15 Z" fill="#1E5BFF"/></svg><span class="wm">Liquid<span>Flow</span></span></div>
@@ -50,127 +50,81 @@
   </div>
 
 <script>
-  var id = new URLSearchParams(location.search).get('id');
-  var poll=null, expiryTimer=null, receiptBundle=null, lastPayment=null, loading=false;
+  var params=new URLSearchParams(location.search);
+  var id=params.get('id');
+  var merchant=params.get('merchant');
+  var encodedOrder=params.get('order');
+  var poll=null,expiryTimer=null,receiptBundle=null,lastPayment=null,loading=false,confirmationNotified=false;
+  var plateOrigin='https://plate-pulse-demo.vercel.app';
+  var choices=[
+    {asset:'VERSE',chain:'eip155:1',name:'VERSE',network:'Ethereum',icon:'V'},
+    {asset:'fxVERSE',chain:'eip155:137',name:'fxVERSE',network:'Polygon',icon:'V'},
+    {asset:'USDC',chain:'eip155:1',name:'USDC',network:'Ethereum',icon:'S'},
+    {asset:'USDC',chain:'eip155:137',name:'USDC',network:'Polygon',icon:'S'},
+    {asset:'USDC',chain:'eip155:8453',name:'USDC',network:'Base',icon:'S'}
+  ];
 
-  function fmtAmt(base, dec){ try{ return (Number(base)/Math.pow(10, dec!=null?dec:18)).toString(); }catch(e){ return base; } }
-  function short(a){ return a ? a.slice(0,12)+'…'+a.slice(-8) : ''; }
-  function copyAddr(a,el){ if(navigator.clipboard) navigator.clipboard.writeText(a); if(el){ var o=el.textContent; el.textContent='Copied'; setTimeout(function(){el.textContent=o;},1200);} }
+  function fmtAmt(base,dec){try{return(Number(base)/Math.pow(10,dec!=null?dec:18)).toString()}catch(e){return base}}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[m]})}
+  function chainName(c){return({'eip155:1':'Ethereum','eip155:137':'Polygon','eip155:8453':'Base'})[c]||c}
+  function copyAddr(a,el){if(navigator.clipboard)navigator.clipboard.writeText(a);if(el){var old=el.textContent;el.textContent='Copied';setTimeout(function(){el.textContent=old},1200)}}
+  function decodeOrder(){try{var raw=encodedOrder.replace(/-/g,'+').replace(/_/g,'/');while(raw.length%4)raw+='=';var items=JSON.parse(atob(raw));return Array.isArray(items)?items:null}catch(e){return null}}
+  function postToFood(type,payment){if(window.opener&&!window.opener.closed)window.opener.postMessage({type:type,payment:payment||null},plateOrigin)}
+
+  function renderSelection(){
+    var items=decodeOrder();
+    if(merchant!=='plate-pulse'||!items){document.getElementById('card').innerHTML='<div class="status bad"><span>This checkout link is invalid.</span></div>';return}
+    document.getElementById('card').className='card payment-card';
+    document.getElementById('card').innerHTML='<div class="choose"><h1>Choose how to pay</h1><p class="choose-sub">Select your coin and network.</p><div class="coin-grid">'+choices.map(function(c,i){return'<button class="coin-option" onclick="choosePayment('+i+')"><span class="coin-icon">'+c.icon+'</span><span class="coin-copy"><b>'+c.name+'</b><span>'+c.network+'</span></span><span class="coin-arrow">›</span></button>'}).join('')+'</div></div>';
+  }
+
+  async function choosePayment(index){
+    var choice=choices[index],items=decodeOrder();if(!choice||!items)return;
+    document.getElementById('card').innerHTML='<div class="loading-stage"><div class="spinner"></div><h2>Preparing payment</h2><p>Assigning a secure payment address…</p></div>';
+    try{
+      var r=await fetch(plateOrigin+'/api/payment?action=create',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({items:items,chain:choice.chain,asset:choice.asset})});
+      var data=await r.json();if(!r.ok)throw new Error(data.error||'Payment could not be created');
+      id=data.payment_id;history.replaceState({},'',location.pathname+'?id='+encodeURIComponent(id));postToFood('liquidflow:payment-created',data);load();poll=setInterval(function(){load(false)},3000);
+    }catch(e){document.getElementById('card').innerHTML='<div class="status bad"><span>'+esc(e.message||'Payment could not be created')+'</span></div><button class="check-btn" onclick="renderSelection()">Try again</button>'}
+  }
+
+  function renderSuccess(p){
+    document.getElementById('card').className='card payment-card';
+    document.getElementById('card').innerHTML='<div class="success-stage"><div class="success-mark">✓</div><h1>Payment successful</h1><p>Your order is confirmed.</p><div class="receipt" id="receipt"><div class="spinner"></div></div></div>';
+    if(!confirmationNotified){confirmationNotified=true;postToFood('liquidflow:payment-confirmed',{payment_id:p.payment_id})}
+    loadReceipt(p.payment_id);if(poll){clearInterval(poll);poll=null}if(expiryTimer){clearInterval(expiryTimer);expiryTimer=null}
+  }
 
   function render(p){
-    var amt = fmtAmt(p.amount, p.decimals);
-    var qr = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data=' + encodeURIComponent(p.deposit_address);
-    var statusHtml, statusCls, statusDot;
-    if(p.status==='confirmed'){
-      statusCls='ok'; statusDot=''; statusHtml='✅ Payment confirmed. You can return to '+esc(p.merchant_name)+'.';
-    } else if(p.status==='expired'){
-      statusCls='bad'; statusDot=''; statusHtml='The timer ended. If you sent before it expired, use the button below for another blockchain check.';
-    } else if(p.status==='cancelled'){
-      statusCls='bad'; statusDot=''; statusHtml='This payment was cancelled.';
-    } else if(p.status==='checking_finality'){
-      statusCls='wait'; statusDot='<span class="dot pulse"></span>'; statusHtml='Payment detected on-chain. Waiting for network confirmations.';
-    } else if(p.status==='awaiting_topup'){
-      statusCls='wait'; statusDot='<span class="dot pulse"></span>'; statusHtml='Partial payment detected. Send the remaining amount before the timer ends.';
-    } else if(p.status==='refund_pending'){
-      statusCls='bad'; statusDot=''; statusHtml='Payment received, but the amount or timing requires refund review. Keep your payment ID.';
-    } else if(p.status==='manual_review'){
-      statusCls='bad'; statusDot=''; statusHtml='Payment received from multiple senders and requires merchant review.';
-    } else {
-      statusCls='wait'; statusDot='<span class="dot pulse"></span>'; statusHtml='Waiting for your payment — this confirms automatically once it lands on-chain.';
-    }
-    var showPay = (p.status!=='confirmed' && p.status!=='expired' && p.status!=='cancelled');
-    var html =
-      '<div class="merchant">Pay '+esc(p.merchant_name)+'</div>'
-      + (p.label ? '<div class="label">'+esc(p.label)+'</div>' : '')
-      + '<div class="amount">'+amt+'<span class="sym">'+esc(p.symbol||p.asset)+'</span></div>'
-      + '<div class="chip">'+chainName(p.chain)+'</div>';
-    if(showPay){
-      html +=
-        '<div class="qr"><img alt="Scan to pay" src="'+qr+'"></div>'
-        + '<div class="addr-lbl">Send exactly '+amt+' '+esc(p.symbol||p.asset)+' to this address</div>'
-        + '<div class="addr"><span id="addr">'+esc(p.deposit_address)+'</span>'
-        + '<button class="copy" onclick="copyAddr(\''+p.deposit_address+'\',this)">Copy</button></div>';
-    }
-    html += '<div class="status '+statusCls+'">'+statusDot+'<span>'+statusHtml+'</span></div>';
-    if(['awaiting_payment','awaiting_topup','checking_finality','expired'].indexOf(p.status)>=0){ html += '<button class="check-btn" id="manualCheck" onclick="manualCheck()">I’ve sent the payment — check now</button>'; }
-    if(p.status==='confirmed') html += '<div class="receipt" id="receipt"><div class="receipt-title">Preparing your signed receipt…</div></div>';
-    if(showPay && p.expires_at){ html += '<div class="expiry" id="expiry"></div>'; }
-    html += '<div class="foot">Non-custodial — funds go straight to the merchant. Liquid Flow never holds your money. Secured by Liquid Flow.</div>';
-    document.getElementById('card').innerHTML = html;
-
-    if(p.status==='confirmed') loadReceipt(p.payment_id);
-
-    if(showPay && p.expires_at) startExpiry(p.expires_at);
-    else if(expiryTimer){ clearInterval(expiryTimer); }
-    if(['confirmed','cancelled','refund_pending','manual_review'].indexOf(p.status)>=0 && poll){ clearInterval(poll); poll=null; }
+    if(p.status==='confirmed'){renderSuccess(p);return}
+    var amt=fmtAmt(p.amount,p.decimals),qr='https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data='+encodeURIComponent(p.deposit_address);
+    var statusHtml='Waiting for payment',statusCls='wait',statusDot='<span class="dot pulse"></span>';
+    if(p.status==='expired'){statusCls='bad';statusDot='';statusHtml='Time expired. Paid already? Click Confirm.'}
+    else if(p.status==='cancelled'){statusCls='bad';statusDot='';statusHtml='Payment cancelled.'}
+    else if(p.status==='checking_finality'){statusHtml='Payment found. Confirming on-chain.'}
+    else if(p.status==='awaiting_topup'){statusHtml='Partial payment received.'}
+    else if(p.status==='refund_pending'){statusCls='bad';statusDot='';statusHtml='Payment needs review.'}
+    else if(p.status==='manual_review'){statusCls='bad';statusDot='';statusHtml='Payment needs merchant review.'}
+    var showPay=p.status!=='cancelled';
+    var html='<div class="merchant">Pay '+esc(p.merchant_name)+'</div>'+(p.label?'<div class="label">'+esc(p.label)+'</div>':'')+'<div class="amount">'+amt+'<span class="sym">'+esc(p.symbol||p.asset)+'</span></div><div class="chip">'+chainName(p.chain)+'</div>';
+    if(showPay)html+='<div class="qr"><img alt="Scan to pay" src="'+qr+'"></div><div class="addr-lbl">Send exactly '+amt+' '+esc(p.symbol||p.asset)+'</div><div class="addr"><span id="addr">'+esc(p.deposit_address)+'</span><button class="copy" onclick="copyAddr(\''+p.deposit_address+'\',this)">Copy</button></div>';
+    html+='<div class="status '+statusCls+'">'+statusDot+'<span>'+statusHtml+'</span></div>';
+    if(['awaiting_payment','awaiting_topup','checking_finality','expired'].indexOf(p.status)>=0)html+='<div class="confirm-note">Sent the payment? Click Confirm.</div><button class="check-btn" id="manualCheck" onclick="manualCheck()">Confirm</button>';
+    if(showPay&&p.expires_at)html+='<div class="expiry" id="expiry"></div>';
+    document.getElementById('card').className='card payment-card';document.getElementById('card').innerHTML=html;
+    if(showPay&&p.expires_at)startExpiry(p.expires_at);else if(expiryTimer)clearInterval(expiryTimer);
+    if(['cancelled','refund_pending','manual_review'].indexOf(p.status)>=0&&poll){clearInterval(poll);poll=null}
   }
 
-  function startExpiry(ts){
-    if(expiryTimer) clearInterval(expiryTimer);
-    var tick=function(){
-      var el=document.getElementById('expiry'); if(!el) return;
-      var s=Math.max(0, Math.floor((ts-Date.now())/1000));
-      var m=Math.floor(s/60), ss=('0'+(s%60)).slice(-2);
-      el.textContent = s>0 ? ('Expires in '+m+':'+ss) : 'Expired';
-    };
-    tick(); expiryTimer=setInterval(tick,1000);
-  }
+  function startExpiry(ts){if(expiryTimer)clearInterval(expiryTimer);var tick=function(){var el=document.getElementById('expiry');if(!el)return;var seconds=Math.max(0,Math.floor((ts-Date.now())/1000)),minutes=Math.floor(seconds/60),rest=('0'+seconds%60).slice(-2);el.textContent=seconds>0?'Expires in '+minutes+':'+rest:'Expired'};tick();expiryTimer=setInterval(tick,1000)}
+  function receiptStorageKey(paymentId){return'liquidflow:receipt:'+paymentId}
+  function showReceipt(bundle){receiptBundle=bundle;var el=document.getElementById('receipt');if(el)el.innerHTML='<div class="receipt-actions"><button class="receipt-btn" onclick="downloadReceipt()">Download receipt</button></div>'}
+  async function loadReceipt(paymentId){var stored=null;try{stored=localStorage.getItem(receiptStorageKey(paymentId))}catch(e){}try{var r=await fetch('/api/receipt?action=get&id='+encodeURIComponent(paymentId));if(!r.ok)throw new Error();var bundle=await r.json();try{localStorage.setItem(receiptStorageKey(paymentId),JSON.stringify(bundle))}catch(e){}showReceipt(bundle)}catch(e){if(stored){try{showReceipt(JSON.parse(stored));return}catch(x){}}var el=document.getElementById('receipt');if(el)el.innerHTML='<button class="receipt-btn" onclick="loadReceipt(\''+paymentId+'\')">Retry receipt</button>'}}
+  function downloadReceipt(){if(!receiptBundle)return;var blob=new Blob([JSON.stringify(receiptBundle,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='liquidflow-'+receiptBundle.receipt.payment_id+'-receipt.json';a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},1000)}
+  async function load(manual){if(loading||!id)return;loading=true;try{var r=await fetch('/api/checkout/'+id+'?check='+(manual?'manual':'auto')+'&t='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error((await r.json().catch(function(){return{}})).error||'Payment not found');lastPayment=await r.json();render(lastPayment)}catch(e){if(lastPayment){var status=document.querySelector('.status');if(status){status.className='status bad';status.innerHTML='<span>Check unavailable. Try again.</span>'}}else document.getElementById('card').innerHTML='<div class="status bad"><span>Payment could not be loaded.</span></div><button class="check-btn" onclick="load(true)">Retry</button>'}finally{loading=false}}
+  async function manualCheck(){var button=document.getElementById('manualCheck');if(button){button.disabled=true;button.textContent='Confirming…'}await load(true)}
 
-  function chainName(c){ return ({'eip155:1':'Ethereum','eip155:137':'Polygon','eip155:84532':'Base Sepolia','eip155:5042002':'Arc','eip155:8453':'Base','solana':'Solana','sui':'Sui'})[c] || c; }
-  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[m];}); }
-
-  function receiptStorageKey(paymentId){ return 'liquidflow:receipt:'+paymentId; }
-  function showReceipt(bundle, backedUp){
-    receiptBundle=bundle;
-    var el=document.getElementById('receipt'); if(!el) return;
-    el.innerHTML='<div class="receipt-title">✓ Signed payment receipt ready</div>'
-      +'<div class="receipt-note">'+(backedUp?'Recovered from this browser.':'Saved in this browser for payment support, even if the merchant callback fails.')+'</div>'
-      +'<div class="receipt-actions"><button class="receipt-btn" onclick="downloadReceipt()">Download receipt</button>'
-      +'<button class="receipt-btn" onclick="copyReceipt(this)">Copy receipt</button></div>';
-  }
-  async function loadReceipt(paymentId){
-    var stored=null; try{ stored=localStorage.getItem(receiptStorageKey(paymentId)); }catch(e){}
-    try{
-      var r=await fetch('/api/receipt?action=get&id='+encodeURIComponent(paymentId));
-      if(!r.ok) throw new Error('receipt unavailable');
-      var bundle=await r.json();
-      try{ localStorage.setItem(receiptStorageKey(paymentId),JSON.stringify(bundle)); }catch(e){}
-      showReceipt(bundle,false);
-    }catch(e){
-      if(stored){ try{ showReceipt(JSON.parse(stored),true); return; }catch(x){} }
-      var el=document.getElementById('receipt'); if(el) el.innerHTML='<div class="receipt-title">Payment confirmed</div><div class="receipt-note">Receipt preparation is retrying. Keep this payment ID: '+esc(paymentId)+'</div>';
-    }
-  }
-  function downloadReceipt(){
-    if(!receiptBundle) return;
-    var blob=new Blob([JSON.stringify(receiptBundle,null,2)],{type:'application/json'}), a=document.createElement('a');
-    a.href=URL.createObjectURL(blob); a.download='liquidflow-'+receiptBundle.receipt.payment_id+'-receipt.json'; a.click(); setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
-  }
-  function copyReceipt(el){
-    if(!receiptBundle) return; var value=JSON.stringify(receiptBundle,null,2);
-    if(navigator.clipboard) navigator.clipboard.writeText(value); var old=el.textContent; el.textContent='Copied'; setTimeout(function(){el.textContent=old;},1200);
-  }
-
-  async function load(manual){
-    if(loading) return;
-    loading=true;
-    try{
-      var r=await fetch('/api/checkout/'+id+'?check='+(manual?'manual':'auto')+'&t='+Date.now(),{cache:'no-store'});
-      if(!r.ok){ throw new Error((await r.json().catch(function(){return{};})).error || 'not found'); }
-      lastPayment=await r.json(); render(lastPayment);
-    }catch(e){
-      if(lastPayment){ var s=document.querySelector('.status'); if(s){s.className='status bad';s.innerHTML='<span>Blockchain check is temporarily unavailable. Your payment details are safe; try again.</span>';} }
-      else document.getElementById('card').innerHTML='<div class="status bad"><span>Payment could not be loaded. Please retry.</span></div><button class="check-btn" onclick="load(true)">Retry</button>';
-    } finally { loading=false; }
-  }
-  async function manualCheck(){var b=document.getElementById('manualCheck');if(b){b.disabled=true;b.textContent='Checking the blockchain…';}await load(true);}
-
-  if(!id){
-    document.getElementById('card').innerHTML='<div class="status bad"><span>Missing payment id.</span></div>';
-  } else {
-    load();
-    poll=setInterval(function(){load(false);}, 3000); // live status until a final outcome
-  }
+  if(id){load();poll=setInterval(function(){load(false)},3000)}else if(merchant&&encodedOrder){renderSelection()}else document.getElementById('card').innerHTML='<div class="status bad"><span>Missing checkout details.</span></div>';
 </script>
 </body>
 </html>
