@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const store  = require('../_lib/store');
 const { trackVerseEvent } = require('../_lib/verse-analytics');
 const chainEngine = require('../_lib/chain');
+const privy = require('../_lib/privy');
 const { CHECKOUT_TTL_MS, ACTIVE_PAYMENT_STATUSES, checkAndConfirm, assetConfig, assetsForChain, assetOk, isValidBaseAmount, chainSupported, chainDisabledReason } = chainEngine;
 
 function cors(res) {
@@ -120,9 +121,21 @@ module.exports = async function handler(req, res) {
 
   // Rotate checkouts across the merchant's ten user-owned Privy payment wallets.
   // A wallet is not reused for the same token/network while an invoice is active.
-  const pool = Array.isArray(merchant.privyPaymentWallets) ? merchant.privyPaymentWallets : [];
-  if (pool.length !== 10) {
-    return res.status(409).json({ error: 'this account predates the 10-wallet pool; create a new account for pooled checkout' });
+  let pool = Array.isArray(merchant.privyPaymentWallets) ? merchant.privyPaymentWallets : [];
+  if (pool.length !== 10 && merchant.privyUserId) {
+    try {
+      pool = await privy.provisionPaymentPool(merchant.privyUserId, merchant.id);
+      merchant.privyPaymentWallets = pool;
+      merchant.paymentWalletCursor = 0;
+      merchant.mode = 'wallet_pool';
+      await store.set(`merchant:${key}`, merchant);
+    } catch (error) {
+      console.error('Legacy merchant pool migration failed:', error && error.message);
+      return res.status(502).json({ error: 'payment wallet setup is still completing; please retry' });
+    }
+  }
+  if (!Array.isArray(pool) || pool.length !== 10) {
+    return res.status(409).json({ error: 'this merchant has no provisionable 10-wallet pool' });
   }
   const existingIds = await store.smembers('merchant:' + key + ':payments');
   const activePayments = [];

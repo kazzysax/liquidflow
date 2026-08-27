@@ -19,6 +19,21 @@ async function getClient() {
   return client;
 }
 
+async function provisionPaymentPool(userId, merchantId) {
+  const privy = await getClient();
+  if (!privy || !userId) return null;
+  return Promise.all(Array.from({ length: 10 }, async (_, index) => {
+    const poolId = `${merchantId}:payment:${index + 1}`;
+    const wallet = await privy.wallets().create({
+      chain_type: 'ethereum',
+      owner: { user_id: userId },
+      display_name: `LiquidFlow payment wallet ${index + 1}`,
+      external_id: poolId,
+      idempotency_key: poolId,
+    });
+    return { walletId: wallet.id, walletAddress: wallet.address, slot: index + 1 };
+  }));
+}
 async function provisionMerchant(email, merchantId) {
   const privy = await getClient();
   if (!privy) return null;
@@ -42,22 +57,7 @@ async function provisionMerchant(email, merchantId) {
     idempotency_key: merchantId,
   });
 
-  const paymentWallets = [];
-  for (let index = 0; index < 10; index += 1) {
-    const poolId = `${merchantId}:payment:${index + 1}`;
-    const paymentWallet = await privy.wallets().create({
-      chain_type: 'ethereum',
-      owner: { user_id: user.id },
-      display_name: `LiquidFlow payment wallet ${index + 1}`,
-      external_id: poolId,
-      idempotency_key: poolId,
-    });
-    paymentWallets.push({
-      walletId: paymentWallet.id,
-      walletAddress: paymentWallet.address,
-      slot: index + 1,
-    });
-  }
+  const paymentWallets = await provisionPaymentPool(user.id, merchantId);
 
   return {
     userId: user.id,
@@ -102,5 +102,6 @@ function settlementView(merchant) {
 module.exports = {
   configured,
   provisionMerchant,
+  provisionPaymentPool,
   settlementView,
 };
