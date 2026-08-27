@@ -32,13 +32,14 @@ function publicView(p) {
     token_contract:  cfg ? cfg.contract : null,
     status:          p.status,
     label:           p.label || null,
-    delivery_mode:   'direct',
+    delivery_mode:   'wallet_pool',
     created_at:      p.createdAt,
     confirmed_at:    p.confirmedAt || null,
     received_amount: p.receivedAmount || '0',
     payer_address:   p.payerAddress || null,
     transaction_hashes: p.transactionHashes || [],
     refund:          p.refund || null,
+    consolidation:  p.status === 'confirmed' ? { status: 'merchant_approval_required' } : null,
     expires_at:      p.expiresAt,
     remaining_seconds: Math.ceil(remainingMs / 1000),
   };
@@ -117,39 +118,59 @@ module.exports = async function handler(req, res) {
   const paymentId = 'pay_' + crypto.randomBytes(8).toString('hex');
   const expiresAt = Date.now() + CHECKOUT_TTL_MS;
 
-  // Every checkout pays the merchant's single primary wallet directly.
-  // Confirmation keys off a confirmed balance increase because the address is reused.
-  const privyMerchant = Boolean(merchant.privyUserId && merchant.privyWalletAddress);
-  const depositAddress = privyMerchant ? merchant.privyWalletAddress : merchant.payout;
-  const privyWalletId = privyMerchant ? merchant.privyWalletId : null;
-  if (!/^0x[0-9a-fA-F]{40}$/.test(String(depositAddress || ''))) {
-    return res.status(400).json({ error: 'merchant has no valid primary wallet configured' });
+  // Rotate checkouts across the merchant's ten user-owned Privy payment wallets.
+  // A wallet is not reused for the same token/network while an invoice is active.
+  const pool = Array.isArray(merchant.privyPaymentWallets) ? merchant.privyPaymentWallets : [];
+  if (pool.length !== 10) {
+    return res.status(409).json({ error: 'this account predates the 10-wallet pool; create a new account for pooled checkout' });
   }
-
-  // A shared wallet cannot safely distinguish concurrent unpaid invoices for the
-  // same token and network. Reject that case instead of double-confirming one transfer.
   const existingIds = await store.smembers('merchant:' + key + ':payments');
+  const activePayments = [];
   for (const existingId of existingIds) {
     const existing = await store.get('payment:' + existingId);
-    const existingCfg = existing && assetConfig(existing.chain, existing.asset);
-    const requestedCfg = assetConfig(chain, asset);
-    if (existing && ACTIVE_PAYMENT_STATUSES.has(existing.status) && existing.chain === chain &&
-        existingCfg && requestedCfg && existingCfg.contract.toLowerCase() === requestedCfg.contract.toLowerCase() &&
-        Date.now() < existing.expiresAt) {
-      return res.status(409).json({ error: 'an unpaid invoice already exists for this asset and network' });
+    if (existing && ACTIVE_PAYMENT_STATUSES.has(existing.status) && Date.now() < existing.expiresAt) {
+      activePayments.push(existing);
     }
   }
+  const start = Number(merchant.paymentWalletCursor || 0) % pool.length;
+  let selectedWallet = null;
+  let selectedIndex = -1;
+  let reservationKey = null;
+  for (let offset = 0; offset < pool.length; offset += 1) {
+    const index = (start + offset) % pool.length;
+    const candidate = pool[index];
+    const occupied = activePayments.some(payment =>
+      String(payment.depositAddress).toLowerCase() === String(candidate.walletAddress).toLowerCase() &&
+      payment.chain === chain && payment.asset === assetConfig(chain, asset).symbol
+    );
+    if (occupied) continue;
+    const candidateKey = `reserve:payment-wallet:${chain}:${assetConfig(chain, asset).symbol}:${String(candidate.walletAddress).toLowerCase()}`;
+    const reserved = await store.setIfAbsent(candidateKey, paymentId, Math.ceil(CHECKOUT_TTL_MS / 1000));
+    if (reserved) { selectedWallet = candidate; selectedIndex = index; reservationKey = candidateKey; break; }
+  }
+  if (!selectedWallet) {
+    return res.status(409).json({ error: 'all 10 payment wallets are busy for this asset and network; retry after an invoice settles or expires' });
+  }
+  const depositAddress = selectedWallet.walletAddress;
+  const privyWalletId = selectedWallet.walletId;
+  if (!/^0x[0-9a-fA-F]{40}$/.test(String(depositAddress || ''))) {
+    return res.status(500).json({ error: 'payment wallet pool contains an invalid address' });
+  }
+  merchant.paymentWalletCursor = (selectedIndex + 1) % pool.length;
+  await store.set(`merchant:${key}`, merchant);
 
   let baselineBalance;
   try {
     baselineBalance = (await chainEngine.confirmedBalance(chain, depositAddress, asset)).toString();
   } catch (e) {
+    if (reservationKey) await store.del(reservationKey);
     return res.status(503).json({ error: 'could not read chain state to baseline this payment; please retry' });
   }
   let startBlock;
   try {
     startBlock = (await chainEngine.currentBlock(chain)).toString();
   } catch (e) {
+    if (reservationKey) await store.del(reservationKey);
     return res.status(503).json({ error: 'could not anchor this invoice to the chain; please retry' });
   }
 
@@ -163,9 +184,11 @@ module.exports = async function handler(req, res) {
     label: label || '',
     depositAddress,
     privyWalletId,
-    walletProvider: privyMerchant ? 'PRIVY' : 'LEGACY',
+    walletProvider: 'PRIVY_POOL',
+    paymentWalletSlot: selectedWallet.slot,
+    consolidation: { status: 'awaiting_payment', primaryWallet: merchant.privyWalletAddress },
     baselineBalance,
-    mode: 'direct',
+    mode: 'wallet_pool',
     status: 'awaiting_payment',
     createdAt: Date.now(),
     expiresAt,
@@ -179,7 +202,7 @@ module.exports = async function handler(req, res) {
   await trackVerseEvent('Payment Created', {
     asset: payment.asset,
     chain: payment.chain,
-    delivery_mode: 'direct',
+    delivery_mode: 'wallet_pool',
   });
 
   return res.status(201).json(publicView(payment));

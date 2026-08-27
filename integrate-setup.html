@@ -171,13 +171,13 @@
 
       <!-- STEP 3: direct settlement -->
       <div class="panel" data-panel="2">
-        <h1>Direct settlement</h1>
+        <h1>Rotating wallet settlement</h1>
         <div class="sub">Every payment goes straight to your primary merchant wallet.</div>
         <div class="field">
           <label>Payment destination</label>
           <div class="privacy-note" style="display:flex">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            <span>LiquidFlow creates one merchant-owned Privy wallet. Checkout payments arrive there directly, and withdrawals are managed from the merchant dashboard.</span>
+            <span>LiquidFlow creates 10 rotating merchant-owned payment wallets plus one primary wallet. Confirmed balances can be consolidated to the primary wallet from the dashboard.</span>
           </div>
         </div>
       </div>
@@ -224,7 +224,7 @@
 
 <script>
   let step=0; const TOTAL=5;
-  const cfg={ name:'', email:'', chains:['eip155:1','eip155:137','eip155:8453'], settle:'AS_RECEIVED', unify:false, dex:null, mode:'direct', webhook:'' };
+  const cfg={ name:'', email:'', chains:['eip155:1','eip155:137','eip155:8453'], settle:'AS_RECEIVED', unify:false, dex:null, mode:'wallet_pool', webhook:'' };
 
   // multi-select grids
   function bindGrid(id, key){
@@ -276,7 +276,7 @@
       ['Chains', cfg.chains.join(', ')||'—'],
       ['Settlement currency', cfg.settle],
       ['Liquidity unification', cfg.unify?('On · via '+cfg.dex):'Off (funds stay as sent)'],
-      ['Payment delivery', 'Direct to primary Privy wallet'],
+      ['Payment delivery', '10-wallet rotation to primary wallet'],
       ['Wallet custody', 'Merchant-owned through Privy · no sweep address required'],
       ['Webhook', cfg.webhook||'—'],
     ];

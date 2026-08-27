@@ -99,6 +99,47 @@ function WalletPanel() {
     }
   }
 
+  async function fundGas() {
+    setMessage('');
+    if (!identityMatches || chosen?.kind !== 'payment') return setMessage('Choose a funded payment wallet first.');
+    const gasReserve = {
+      'eip155:1': 500000000000000n,
+      'eip155:137': 50000000000000000n,
+      'eip155:8453': 50000000000000n,
+    }[chosen.chain];
+    if (!gasReserve) return setMessage('This network does not support gas funding.');
+    try {
+      setMessage(`Approve gas funding for payment wallet ${chosen.slot}…`);
+      const result = await sendTransaction(
+        { to: chosen.address, value: gasReserve, chainId: NETWORKS[chosen.chain].chainId },
+        { address: portfolio.primary_wallet },
+      );
+      setMessage(`Gas funding submitted: ${result.hash}`);
+    } catch (error) {
+      setMessage(error?.message || 'Gas funding was not approved.');
+    }
+  }
+
+  async function consolidate() {
+    setMessage('');
+    if (!identityMatches || chosen?.kind !== 'payment') return setMessage('Choose a funded payment wallet first.');
+    try {
+      setMessage(`Approve consolidation from payment wallet ${chosen.slot}…`);
+      const data = encodeFunctionData({
+        abi: erc20Abi,
+        functionName: 'transfer',
+        args: [portfolio.primary_wallet, BigInt(chosen.amount_base)],
+      });
+      const result = await sendTransaction(
+        { to: chosen.contract, data, chainId: NETWORKS[chosen.chain].chainId },
+        { address: chosen.address },
+      );
+      setMessage(`Consolidation submitted: ${result.hash}`);
+      window.setTimeout(refresh, 8000);
+    } catch (error) {
+      setMessage(error?.message || 'Consolidation was not approved. Fund gas first, then retry.');
+    }
+  }
   return <div className="wallet-console">
     <div className="wallet-console-head">
       <div>
@@ -131,15 +172,18 @@ function WalletPanel() {
           <label>Asset to withdraw</label>
           <select className="lf-input" value={selected} onChange={event => setSelected(event.target.value)}>
             {holdings.map(item => <option key={`${item.address}:${item.chain}:${item.asset}`} value={`${item.address}:${item.chain}:${item.asset}`}>
-              {item.asset} on {NETWORKS[item.chain]?.name} · {formatUnits(BigInt(item.amount_base), item.decimals)}
+              {item.asset} on {NETWORKS[item.chain]?.name} · {item.kind === 'primary' ? 'Primary' : 'Payment #' + item.slot} · {formatUnits(BigInt(item.amount_base), item.decimals)}
             </option>)}
           </select>
           <div className="wallet-transfer-grid">
             <div><label>Send to</label><input className="lf-input mono" value={recipient} onChange={event => setRecipient(event.target.value)} placeholder="0x…" /></div>
             <div><label>Amount</label><input className="lf-input" value={amount} onChange={event => setAmount(event.target.value)} placeholder="0.00" inputMode="decimal" /></div>
           </div>
-          <button className="btn" onClick={transfer}>Review withdrawal</button>
-          <div className="wallet-gas-note">Network gas is paid by the selected wallet: ETH on Ethereum/Base and POL on Polygon.</div>
+          {chosen?.kind === 'payment' ? <div className="wallet-transfer-grid">
+            <button className="btn btn-ghost" onClick={fundGas}>Fund gas</button>
+            <button className="btn" onClick={consolidate}>Consolidate full balance</button>
+          </div> : <button className="btn" onClick={transfer}>Review withdrawal</button>}
+          <div className="wallet-gas-note">Payment wallets need ETH on Ethereum/Base or POL on Polygon before consolidation. Gas funding comes from the primary wallet and always requires merchant approval.</div>
         </> : <div className="wallet-muted">Payments sent to your primary wallet will appear here automatically.</div>}
         <button className="wallet-signout" onClick={logout}>Sign out of Privy</button>
       </div>}

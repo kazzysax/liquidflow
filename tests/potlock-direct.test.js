@@ -13,6 +13,7 @@ privy.provisionMerchant = async () => ({
   userId: 'did:privy:potlock-owner',
   walletId: 'wallet_potlock_primary',
   walletAddress: '0x4444444444444444444444444444444444444444',
+  paymentWallets: Array.from({ length: 10 }, (_, index) => ({ walletId: 'wallet_potlock_' + (index + 1), walletAddress: '0x' + String(index + 20).padStart(40, '0'), slot: index + 1 })),
 });
 
 const fundraiserHandler = require('../api/fundraisers');
@@ -30,7 +31,7 @@ function responseCapture() {
   };
 }
 
-test('Potlock campaign and donations settle directly to the creator primary wallet', async () => {
+test('Potlock rotates donations across creator payment wallets', async () => {
   const created = responseCapture();
   await fundraiserHandler({
     method: 'POST',
@@ -60,12 +61,12 @@ test('Potlock campaign and donations settle directly to the creator primary wall
   }, donation);
 
   assert.equal(donation.code, 201);
-  assert.equal(donation.body.deposit_address, created.body.primary_wallet);
-  assert.equal(donation.body.delivery_mode, 'direct');
+  assert.equal(donation.body.deposit_address, '0x0000000000000000000000000000000000000020');
+  assert.equal(donation.body.delivery_mode, 'wallet_pool');
 
   const payment = await store.get('payment:' + donation.body.payment_id);
-  assert.equal(payment.mode, 'direct');
-  assert.equal(payment.privyWalletId, 'wallet_potlock_primary');
+  assert.equal(payment.mode, 'wallet_pool');
+  assert.equal(payment.privyWalletId, 'wallet_potlock_1');
   assert.equal(payment.baselineBalance, '0');
 
   const duplicate = responseCapture();
@@ -75,5 +76,6 @@ test('Potlock campaign and donations settle directly to the creator primary wall
     headers: {},
     body: { amount: '1000000' },
   }, duplicate);
-  assert.equal(duplicate.code, 409);
+  assert.equal(duplicate.code, 201);
+  assert.equal(duplicate.body.deposit_address, '0x0000000000000000000000000000000000000021');
 });

@@ -67,7 +67,7 @@
 
     <h2>The three systems</h2>
     <div class="cards">
-      <a class="card" href="integrate-setup.html"><div class="t">Integrate Payment →</div><div class="d">Accept crypto on your platform. Payments settle directly to your primary wallet; we confirm on-chain and webhook your app.</div></a>
+      <a class="card" href="integrate-setup.html"><div class="t">Integrate Payment →</div><div class="d">Accept crypto on your platform. Payments rotate across your 10 payment wallets; we confirm on-chain and webhook your app before consolidation.</div></a>
       <a class="card" href="potlock-create.html"><div class="t">Potlock →</div><div class="d">Private fundraising. Donors give to one-time addresses; only the running total is public, never who gave.</div></a>
       <div class="card" aria-disabled="true" style="opacity:.62"><div class="t">Payroll · Coming in Phase Two</div><div class="d">Business-owned scheduled payouts will launch alongside LiquidFlow's subscription model after independent review.</div></div>
       <a class="card" href="docs-api.html"><div class="t">API Reference →</div><div class="d">Every endpoint for merchants, payments, fundraisers and payroll, with request/response examples.</div></a>
@@ -77,7 +77,7 @@
     <p>This is the single rule the whole product is built around:</p>
     <div class="ok">🔒 <b>Liquid Flow can time and authorize, but never move funds.</b> Your spend key is shown to you once and is never stored on our servers. If Liquid Flow were fully compromised, no user money could be taken.</div>
     <ul>
-      <li><b>Payments &amp; fundraising:</b> payments land directly in your merchant-owned primary wallet.</li>
+      <li><b>Payments &amp; fundraising:</b> payments rotate across 10 merchant-owned wallets before merchant-approved consolidation.</li>
       <li><b>Payroll:</b> funds sit in a contract <i>you own</i>; our trigger key can only release a company-defined payout on or after its scheduled time, to the recipient you set.</li>
     </ul>
 
@@ -93,9 +93,9 @@
     <p>The submission engine is intentionally limited to the documented EVM mainnets and canonical token contracts:</p>
     <table>
       <tr><th>Chain</th><th>Identifier</th><th>Accepted assets</th><th>Settlement</th></tr>
-      <tr><td>Ethereum</td><td><code>eip155:1</code></td><td>VERSE, USDC</td><td>Direct to primary wallet</td></tr>
-      <tr><td>Polygon</td><td><code>eip155:137</code></td><td>fxVERSE, USDC</td><td>Direct to primary wallet</td></tr>
-      <tr><td>Base</td><td><code>eip155:8453</code></td><td>USDC</td><td>Direct to primary wallet</td></tr>
+      <tr><td>Ethereum</td><td><code>eip155:1</code></td><td>VERSE, USDC</td><td>Rotating pool to primary wallet</td></tr>
+      <tr><td>Polygon</td><td><code>eip155:137</code></td><td>fxVERSE, USDC</td><td>Rotating pool to primary wallet</td></tr>
+      <tr><td>Base</td><td><code>eip155:8453</code></td><td>USDC</td><td>Rotating pool to primary wallet</td></tr>
       <tr><td>Base</td><td><code>eip155:8453</code></td><td>USDC</td><td>secp256k1</td></tr>
     </table>
 

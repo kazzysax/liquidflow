@@ -9,6 +9,7 @@ privy.provisionMerchant = async (email, merchantId) => ({
   userId: 'did:privy:test-merchant',
   walletId: 'wallet_test_merchant',
   walletAddress: '0x2222222222222222222222222222222222222222',
+  paymentWallets: Array.from({ length: 10 }, (_, index) => ({ walletId: 'wallet_signup_' + (index + 1), walletAddress: '0x' + String(index + 40).padStart(40, '0'), slot: index + 1 })),
 });
 const merchantHandler = require('../api/merchants');
 const { checkAndConfirm } = require('../api/_lib/chain');
@@ -53,6 +54,8 @@ test('new merchant gateways activate immediately without a subscription invoice'
   assert.equal(res.body.settlement.provider, 'PRIVY');
   assert.equal(res.body.settlement.primary_wallet, '0x2222222222222222222222222222222222222222');
   assert.equal(res.body.settlement.sweep_wallet, null);
+  assert.equal(res.body.settlement.payment_wallet_count, 10);
+  assert.equal(res.body.mode, 'wallet_pool');
   assert.equal(res.body.settlement.control, 'merchant_only');
 });
 

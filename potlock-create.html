@@ -124,7 +124,7 @@
 
       <div class="anychain">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="#185FA5" stroke-width="1.7"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="#185FA5" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <span>Donations settle directly to your creator-owned primary Privy wallet on the selected network.</span>
+        <span>Donations rotate across 10 creator-owned payment wallets and can be consolidated to the creator primary wallet.</span>
       </div>
 
       <button class="btn-create" onclick="generate()">
@@ -178,7 +178,7 @@
         walletNote.style.cssText='margin-top:14px;background:#EAF3FF;border:1px solid #B8D4FF;border-radius:10px;padding:11px 13px;font-size:12px;color:#185FA5;word-break:break-all';
         gen.appendChild(walletNote);
       }
-      walletNote.innerHTML='<b>Direct settlement wallet</b><br><code style="font-size:11px">'+d.primary_wallet+'</code><br>Your dashboard key was saved on this device. <a href="dashboard.html">Open dashboard</a>.';
+      walletNote.innerHTML='<b>Rotating wallet settlement wallet</b><br><code style="font-size:11px">'+d.primary_wallet+'</code><br>Your dashboard key was saved on this device. <a href="dashboard.html">Open dashboard</a>.';
       var open=document.getElementById('openCampaign');
       if(!open){
         open=document.createElement('a'); open.id='openCampaign'; open.href=link;

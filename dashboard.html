@@ -123,10 +123,10 @@
       <h2>Merchant funds &amp; withdrawals <span class="badge b-wait" id="settlementBadge">checking</span></h2>
       <div class="settlement-grid">
         <div class="settlement-item"><div class="k">Primary Privy wallet</div><div class="v mono" id="privyVault">—</div></div>
-        <div class="settlement-item"><div class="k">Private payment wallets</div><div class="v">Created per checkout</div></div>
+        <div class="settlement-item"><div class="k">Rotating payment wallets</div><div class="v">10 per account</div></div>
         <div class="settlement-item"><div class="k">Access model</div><div class="v" id="settlementAccess">Merchant only</div></div>
       </div>
-      <div class="settlement-note" id="settlementNote">Your assets remain in wallets owned by your Privy account until you choose to move them.</div>
+      <div class="settlement-note" id="settlementNote">Payments rotate across 10 merchant-owned wallets. Fund gas and consolidate confirmed balances into the primary wallet.</div>
       <div id="privyWalletApp"><div class="wallet-muted">Loading merchant wallet…</div></div>
     </div>
 
@@ -222,7 +222,7 @@
     document.getElementById('loginView').style.display='none';
     document.getElementById('dashView').style.display='block';
     document.getElementById('mName').textContent=m.name && m.name.length?m.name:'Merchant';
-    document.getElementById('mSub').textContent='Direct settlement · primary wallet'
+    document.getElementById('mSub').textContent='10-wallet rotation · primary consolidation'
       + ' · '+m.merchant_id;
     var sb=document.getElementById('secretBox');
     sb.style.display='block';
@@ -241,7 +241,7 @@
     var badge=document.getElementById('settlementBadge');
     badge.textContent=s.status==='active'?'active':(s.status==='legacy'?'legacy':'setup pending');
     badge.className='badge '+(s.status==='active'?'b-ok':'b-wait');
-    document.getElementById('settlementAccess').textContent=s.provider==='PRIVY'?'Merchant only · Privy secured':'Legacy merchant control';
+    document.getElementById('settlementAccess').textContent=s.provider==='PRIVY'?'Merchant-owned · Privy secured':'Legacy merchant control';
     document.getElementById('settlementNote').textContent=s.restriction||'This gateway retains its original settlement configuration.';
   }
 

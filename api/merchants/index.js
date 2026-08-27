@@ -42,7 +42,7 @@ module.exports = async function handler(req, res) {
     const out = {
       merchant_id: m.id,
       name:        m.name || 'Merchant',
-      mode:        'direct',
+      mode:        'wallet_pool',
       chains:      m.chains || [],
       settle:      m.settle || 'AS_RECEIVED',
       unify:       m.unify === true,
@@ -125,7 +125,7 @@ module.exports = async function handler(req, res) {
     apiKey: apiKeyVal,
     webhookUrl: webhook,
     webhookSecret,
-    mode: 'direct',
+    mode: 'wallet_pool',
     chains,
     settle: String(settle).toUpperCase(),
     unify,
@@ -135,19 +135,21 @@ module.exports = async function handler(req, res) {
     privyUserId: privyMerchant && privyMerchant.userId,
     privyWalletId: privyMerchant && privyMerchant.walletId,
     privyWalletAddress: privyMerchant && privyMerchant.walletAddress,
+    privyPaymentWallets: (privyMerchant && privyMerchant.paymentWallets) || [],
+    paymentWalletCursor: 0,
     status: 'active',
     activatedAt: Date.now(),
     createdAt: Date.now(),
   };
 
   await store.set(`merchant:${apiKeyVal}`, merchant);
-  await trackVerseEvent('Merchant Created', { delivery_mode: 'direct', settle, chains: chains.join(',') });
+  await trackVerseEvent('Merchant Created', { delivery_mode: 'wallet_pool', settle, chains: chains.join(',') });
 
   const resp = {
     merchant_id:    merchantId,
     api_key:        apiKeyVal,
     webhook_secret: webhookSecret,
-    mode: 'direct',
+    mode: 'wallet_pool',
     status: 'active',
     settlement: privy.settlementView(merchant),
   };

@@ -1,6 +1,6 @@
 // /api/fundraisers/:id
 //   GET  — fundraiser details + real computed totals
-//   POST — create a donation request to the campaign primary wallet
+//   POST — create a donation request using the rotating campaign wallet pool
 const crypto = require('crypto');
 const store  = require('../_lib/store');
 const chainEngine = require('../_lib/chain');
@@ -60,7 +60,7 @@ module.exports = async function handler(req, res) {
       donation_count: t.count,
       pct: f.goal > 0 ? Math.min(100, Math.round((raised / f.goal) * 100)) : 0,
       recent: t.recent,
-      delivery: 'direct_to_primary',
+      delivery: 'rotating_pool_then_primary',
       created_at: f.createdAt,
     });
   }
@@ -77,22 +77,38 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'amount must be a positive integer in base units' });
   }
 
-  if (!/^0x[0-9a-fA-F]{40}$/.test(String(f.primaryWallet || ''))) {
-    return res.status(409).json({ error: 'this legacy campaign no longer accepts donations; create a direct-settlement campaign' });
+  const pool = Array.isArray(f.paymentWallets) ? f.paymentWallets : [];
+  if (pool.length !== 10 || !/^0x[0-9a-fA-F]{40}$/.test(String(f.primaryWallet || ''))) {
+    return res.status(409).json({ error: 'this campaign predates the 10-wallet pool; create a new campaign' });
   }
 
-  // With one direct wallet, two open requests for the same amount could both claim
-  // one transfer. Reject that ambiguous case; fundraiser requests never expire.
+  // A donation request has no timer, so reserve one payment wallet until that
+  // request confirms. This permits up to ten simultaneous open requests.
   const existingIds = await store.smembers('fundraiser:' + id + ':payments');
+  const activeAddresses = new Set();
   for (const existingId of existingIds) {
     const existing = await store.get('payment:' + existingId);
-    if (existing && ACTIVE_PAYMENT_STATUSES.has(existing.status) && String(existing.amount) === String(amount)) {
-      return res.status(409).json({ error: 'an open donation request already uses this exact amount; choose a slightly different amount' });
+    if (existing && ACTIVE_PAYMENT_STATUSES.has(existing.status)) {
+      activeAddresses.add(String(existing.depositAddress).toLowerCase());
     }
+  }
+  const start = Number(f.paymentWalletCursor || 0) % pool.length;
+  let selectedWallet = null;
+  let selectedIndex = -1;
+  for (let offset = 0; offset < pool.length; offset += 1) {
+    const index = (start + offset) % pool.length;
+    if (!activeAddresses.has(String(pool[index].walletAddress).toLowerCase())) {
+      selectedWallet = pool[index]; selectedIndex = index; break;
+    }
+  }
+  if (!selectedWallet) {
+    return res.status(409).json({ error: 'all 10 campaign payment wallets have open donation requests' });
   }
 
   const paymentId = 'don_' + crypto.randomBytes(8).toString('hex');
-  const depositAddress = f.primaryWallet;
+  const depositAddress = selectedWallet.walletAddress;
+  f.paymentWalletCursor = (selectedIndex + 1) % pool.length;
+  await store.set('fundraiser:' + id, f);
   let baselineBalance, startBlock;
   try {
     baselineBalance = (await chainEngine.confirmedBalance(f.chain, depositAddress, f.asset)).toString();
@@ -110,10 +126,11 @@ module.exports = async function handler(req, res) {
     chain: f.chain,
     label,
     depositAddress,
-    privyWalletId: f.privyWalletId || null,
-    walletProvider: 'PRIVY',
+    privyWalletId: selectedWallet.walletId,
+    paymentWalletSlot: selectedWallet.slot,
+    walletProvider: 'PRIVY_POOL',
     baselineBalance,
-    mode: 'direct',
+    mode: 'wallet_pool',
     status: 'awaiting_payment',
     createdAt: Date.now(),
     expiresAt: null, // fundraiser donation addresses intentionally do not expire
@@ -132,7 +149,7 @@ module.exports = async function handler(req, res) {
     asset: f.asset,
     chain: f.chain,
     status: 'awaiting_payment',
-    delivery_mode: 'direct',
+    delivery_mode: 'wallet_pool',
     expires_at: null,
   });
 };

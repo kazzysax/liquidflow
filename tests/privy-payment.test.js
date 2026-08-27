@@ -21,15 +21,16 @@ function responseCapture() {
   };
 }
 
-test('payment goes directly to the merchant primary wallet', async () => {
+test('payment rotates through the merchant payment-wallet pool', async () => {
   const key = 'lf_live_privy_payment_test';
   await store.set(`merchant:${key}`, {
     id: 'm_privy_payment_test',
-    mode: 'direct',
+    mode: 'wallet_pool',
     chains: ['eip155:1'],
     privyUserId: 'did:privy:test-merchant',
     privyWalletId: 'wallet_primary',
     privyWalletAddress: '0x2222222222222222222222222222222222222222',
+    privyPaymentWallets: Array.from({ length: 10 }, (_, index) => ({ walletId: 'wallet_pool_' + (index + 1), walletAddress: '0x' + String(index + 3).padStart(40, '0'), slot: index + 1 })),
     status: 'active',
   });
 
@@ -41,9 +42,9 @@ test('payment goes directly to the merchant primary wallet', async () => {
   }, res);
 
   assert.equal(res.code, 201);
-  assert.equal(res.body.deposit_address, '0x2222222222222222222222222222222222222222');
+  assert.equal(res.body.deposit_address, '0x0000000000000000000000000000000000000003');
   const stored = await store.get(`payment:${res.body.payment_id}`);
-  assert.equal(stored.walletProvider, 'PRIVY');
-  assert.equal(stored.privyWalletId, 'wallet_primary');
-  assert.equal(stored.mode, 'direct');
+  assert.equal(stored.walletProvider, 'PRIVY_POOL');
+  assert.equal(stored.privyWalletId, 'wallet_pool_1');
+  assert.equal(stored.mode, 'wallet_pool');
   assert.equal(stored.baselineBalance, '0');});

@@ -25,13 +25,16 @@ async function confirmPayment(payment, confirmations) {
   payment.status        = 'confirmed';
   payment.confirmedAt   = Date.now();
   payment.confirmations = confirmations;
+  if (payment.mode === 'wallet_pool') {
+    payment.consolidation = { ...(payment.consolidation || {}), status: 'merchant_approval_required', confirmedAt: payment.confirmedAt };
+  }
   await store.set(`payment:${payment.id}`, payment);
   await store.srem('payments:pending', payment.id);
 
   await trackVerseEvent('Payment Confirmed', {
     asset: payment.asset,
     chain: payment.chain,
-    delivery_mode: 'direct',
+    delivery_mode: payment.mode || 'legacy',
   });
 
   let webhookSent = false;

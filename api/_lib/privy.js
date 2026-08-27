@@ -42,10 +42,28 @@ async function provisionMerchant(email, merchantId) {
     idempotency_key: merchantId,
   });
 
+  const paymentWallets = [];
+  for (let index = 0; index < 10; index += 1) {
+    const poolId = `${merchantId}:payment:${index + 1}`;
+    const paymentWallet = await privy.wallets().create({
+      chain_type: 'ethereum',
+      owner: { user_id: user.id },
+      display_name: `LiquidFlow payment wallet ${index + 1}`,
+      external_id: poolId,
+      idempotency_key: poolId,
+    });
+    paymentWallets.push({
+      walletId: paymentWallet.id,
+      walletAddress: paymentWallet.address,
+      slot: index + 1,
+    });
+  }
+
   return {
     userId: user.id,
     walletId: wallet.id,
     walletAddress: wallet.address,
+    paymentWallets,
   };
 }
 
@@ -67,11 +85,17 @@ function settlementView(merchant) {
     custody: 'merchant_owned',
     status: walletAddress ? 'active' : 'not_provisioned',
     primary_wallet: walletAddress || null,
-    deposit_wallet: walletAddress || null,
+    deposit_wallet: null,
+    payment_wallets: (merchant.privyPaymentWallets || []).map(wallet => ({
+      slot: wallet.slot,
+      address: wallet.walletAddress,
+    })),
+    payment_wallet_count: (merchant.privyPaymentWallets || []).length,
     sweep_wallet: null,
-    direct_settlement: true,
+    direct_settlement: false,
+    consolidation: 'merchant_approved_to_primary',
     control: 'merchant_only',
-    restriction: 'Only the authenticated merchant can sign transfers from the primary Privy wallet.',
+    restriction: 'Ten merchant-owned payment wallets rotate across checkouts. The authenticated merchant approves consolidation to the primary wallet.',
   };
 }
 
