@@ -23,7 +23,7 @@ async function provisionPaymentPool(userId, merchantId) {
   const privy = await getClient();
   if (!privy || !userId) return null;
   return Promise.all(Array.from({ length: 10 }, async (_, index) => {
-    const poolId = `${merchantId}:payment:${index + 1}`;
+    const poolId = `${merchantId}_payment_${index + 1}`;
     const wallet = await privy.wallets().create({
       chain_type: 'ethereum',
       owner: { user_id: userId },
