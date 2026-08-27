@@ -59,9 +59,22 @@ module.exports = async function handler(req, res) {
     const apiKey = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
     const merchant = await store.get(`merchant:${apiKey}`);
     if (!merchant) return res.status(401).json({ error: 'invalid api key' });
+    if (merchant.unify !== true || merchant.dex !== 'LIQUIDFLOW_APPROVED_ROUTES') {
+      return res.status(403).json({ error: 'liquidity unification is not enabled for this merchant' });
+    }
+    if (String(merchant.settle || '').toUpperCase() !== 'USDC') {
+      return res.status(403).json({ error: 'the live unification route currently settles to USDC' });
+    }
     const requestedChain = String(req.body && req.body.chain || '');
     if (!Array.isArray(merchant.chains) || !merchant.chains.includes(requestedChain)) {
       return res.status(403).json({ error: 'this network is not enabled for the merchant' });
+    }
+    const primaryWallet = String(merchant.privyWalletAddress || '');
+    if (!primaryWallet || String(req.body && req.body.recipient || '').toLowerCase() !== primaryWallet.toLowerCase()) {
+      return res.status(403).json({ error: 'swap recipient must be the merchant primary wallet' });
+    }
+    if (String(req.body && req.body.to || '').toUpperCase() !== 'USDC') {
+      return res.status(400).json({ error: 'the enabled settlement target is USDC' });
     }
     try { return res.status(200).json(await verseDex.quote(req.body || {})); }
     catch (error) { return res.status(400).json({ error: error.message }); }

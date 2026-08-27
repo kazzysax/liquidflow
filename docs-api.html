@@ -106,7 +106,7 @@
 
     <h2>Liquidity unification</h2>
     <h3><span class="m post">POST</span> /api/dex/quote</h3>
-    <p>Authenticated. Builds a merchant-signed same-chain swap plan. Verse DEX is the primary route for Ethereum VERSE/USDC. QuickSwap is the approved Polygon liquidity fallback for fxVERSE/USDC when a native Verse DEX Polygon route is unavailable. LiquidFlow never signs or relays the swap.</p>
+    <p>Authenticated and available to merchants who enable USDC liquidity unification during registration. It builds a merchant-signed same-chain swap plan to the merchant primary wallet. Verse DEX is the primary route for Ethereum VERSE/USDC. QuickSwap is the approved Polygon liquidity fallback for fxVERSE/USDC when a native Verse DEX Polygon route is unavailable. LiquidFlow never signs or relays the swap.</p>
     <pre><code>curl -X POST https://liquidflow-io.vercel.app/api/dex/quote \
   -H "Authorization: Bearer lf_live_…" \
   -H "Content-Type: application/json" -d '{

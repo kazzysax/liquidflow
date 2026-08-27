@@ -89,14 +89,17 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'select at least one supported mainnet' });
   }
 
-  if (!['AS_RECEIVED', 'USDC', 'VERSE', 'FXVERSE'].includes(String(settle || '').toUpperCase())) {
-    return res.status(400).json({ error: 'settle must be AS_RECEIVED, USDC, VERSE or fxVERSE' });
+  if (!['AS_RECEIVED', 'USDC'].includes(String(settle || '').toUpperCase())) {
+    return res.status(400).json({ error: 'settle must be AS_RECEIVED or USDC' });
   }
   if (typeof unify !== 'boolean') {
     return res.status(400).json({ error: 'unify must be explicitly true or false' });
   }
   if (String(settle).toUpperCase() === 'AS_RECEIVED' && unify === true) {
     return res.status(400).json({ error: 'AS_RECEIVED settlement cannot enable liquidity unification' });
+  }
+  if (unify === true && String(settle).toUpperCase() !== 'USDC') {
+    return res.status(400).json({ error: 'the live liquidity unification target is USDC' });
   }
   const normalizedDex = unify ? String(dex || '').trim() : null;
   if (unify && normalizedDex !== 'LIQUIDFLOW_APPROVED_ROUTES') {

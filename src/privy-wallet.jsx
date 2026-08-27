@@ -49,6 +49,37 @@ function WalletPanel() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  useEffect(() => {
+    const executeDex = async event => {
+      const { plan, address } = event.detail || {};
+      if (!plan?.steps?.length || !address) return;
+      if (!authenticated || user?.id !== profile?.privyUserId) {
+        window.dispatchEvent(new CustomEvent('liquidflow:dex-result', { detail: { status: 'error', message: 'Sign in with the registered merchant Privy account first.' } }));
+        return;
+      }
+      if (address.toLowerCase() !== profile.settlement.primary_wallet.toLowerCase()) {
+        window.dispatchEvent(new CustomEvent('liquidflow:dex-result', { detail: { status: 'error', message: 'Swap must use the merchant primary wallet.' } }));
+        return;
+      }
+      try {
+        for (let index = 0; index < plan.steps.length; index += 1) {
+          const step = plan.steps[index];
+          window.dispatchEvent(new CustomEvent('liquidflow:dex-result', { detail: { status: 'progress', message: `Approval ${index + 1} of ${plan.steps.length}: ${step.label}` } }));
+          await sendTransaction(
+            { to: step.to, data: step.data, value: BigInt(step.value || '0'), chainId: plan.chain_id },
+            { address },
+          );
+        }
+        window.dispatchEvent(new CustomEvent('liquidflow:dex-result', { detail: { status: 'success' } }));
+        window.setTimeout(refresh, 8000);
+      } catch (error) {
+        window.dispatchEvent(new CustomEvent('liquidflow:dex-result', { detail: { status: 'error', message: error?.message || 'Swap was not approved.' } }));
+      }
+    };
+    window.addEventListener('liquidflow:dex-execute', executeDex);
+    return () => window.removeEventListener('liquidflow:dex-execute', executeDex);
+  }, [authenticated, user, profile, refresh, sendTransaction]);
+
   const holdings = useMemo(
     () => (portfolio?.holdings || []).filter(item => BigInt(item.amount_base || '0') > 0n),
     [portfolio],

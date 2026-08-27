@@ -138,10 +138,8 @@
           <label>Settlement currency</label>
           <div class="hint">The asset you want to hold after payments arrive.</div>
           <select id="settleCur" onchange="syncSettlementChoice()">
+            <option value="USDC" selected>USDC — stable-value settlement (recommended)</option>
             <option value="AS_RECEIVED">Keep assets as received — no conversion</option>
-            <option value="USDC">USDC — USD stablecoin (recommended)</option>
-            <option value="VERSE">VERSE — Verse ecosystem token</option>
-            <option value="FXVERSE">fxVERSE — Verse on Polygon</option>
           </select>
         </div>
 
@@ -152,15 +150,15 @@
               <div class="t">Merchant-signed liquidity unification</div>
               <div class="d">Convert VERSE or fxVERSE to same-chain USDC using a protected route that your merchant wallet signs.</div>
             </div>
-            <button class="switch" id="unifySwitch" aria-pressed="false" onclick="toggleSwitch(this)"></button>
+            <button class="switch" id="unifySwitch" aria-pressed="true" onclick="toggleSwitch(this)"></button>
           </div>
-          <div class="warn-note" id="unifyWarn" style="display:none">
+          <div class="warn-note" id="unifyWarn" style="display:flex">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
             <span>LiquidFlow never signs or holds swap keys. Sign in with your merchant Privy identity to approve a protected route from the wallet holding the asset.</span>
           </div>
         </div>
 
-        <div class="field" id="dexField" style="opacity:.4;pointer-events:none">
+        <div class="field" id="dexField">
           <label>Swap &amp; settlement provider</label>
           <div class="hint">Verse DEX is the primary engine on Ethereum. QuickSwap is used only as the approved Polygon liquidity fallback for fxVERSE/USDC.</div>
           <div class="grid" id="dexGrid">
@@ -224,7 +222,7 @@
 
 <script>
   let step=0; const TOTAL=5;
-  const cfg={ name:'', email:'', chains:['eip155:1','eip155:137','eip155:8453'], settle:'AS_RECEIVED', unify:false, dex:null, mode:'wallet_pool', webhook:'' };
+  const cfg={ name:'', email:'', chains:['eip155:1','eip155:137','eip155:8453'], settle:'USDC', unify:true, dex:'LIQUIDFLOW_APPROVED_ROUTES', mode:'wallet_pool', webhook:'' };
 
   // multi-select grids
   function bindGrid(id, key){

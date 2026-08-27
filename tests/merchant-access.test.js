@@ -34,10 +34,10 @@ test('new merchant gateways activate immediately without a subscription invoice'
       name: 'Audit Merchant',
       email: 'merchant@example.com',
       chains: ['eip155:1'],
-      settle: 'VERSE',
+      settle: 'USDC',
       mode: 'direct',
-      unify: false,
-      dex: null,
+      unify: true,
+      dex: 'LIQUIDFLOW_APPROVED_ROUTES',
       webhook: 'https://example.com/api/liquidflow/webhook',
     },
   };
