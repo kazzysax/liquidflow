@@ -4,7 +4,6 @@ Non-custodial multi-chain crypto payment platform. Two systems: **Integrate
 Payment** (a gateway other platforms embed) and **Potlock** (private fundraising
 with stealth addresses).
 
-> **Testnet only.** Not mainnet-ready — real funds wait on the Phase 5 gate
 > (see [SECURITY.md](SECURITY.md) and GO-LIVE.md). The code is security-hardened
 > and configured to mainnet standards, but external audits + legal sign-off come first.
 
