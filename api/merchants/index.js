@@ -42,7 +42,7 @@ module.exports = async function handler(req, res) {
     const out = {
       merchant_id: m.id,
       name:        m.name || 'Merchant',
-      mode:        m.mode,
+      mode:        'direct',
       chains:      m.chains || [],
       settle:      m.settle || 'AS_RECEIVED',
       unify:       m.unify === true,
@@ -62,7 +62,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
   const {
-    name, email, chains, settle, unify, dex, mode, webhook,
+    name, email, chains, settle, unify, dex, webhook,
   } = req.body || {};
 
   // --- Gating: no silent defaults for essentials. Reject incomplete/unsafe signups. ---
@@ -88,9 +88,7 @@ module.exports = async function handler(req, res) {
   if (chains.length === 0) {
     return res.status(400).json({ error: 'select at least one supported mainnet' });
   }
-  if (mode !== 'instant' && mode !== 'stealth') {
-    return res.status(400).json({ error: 'mode must be instant or stealth' });
-  }
+
   if (!['AS_RECEIVED', 'USDC', 'VERSE', 'FXVERSE'].includes(String(settle || '').toUpperCase())) {
     return res.status(400).json({ error: 'settle must be AS_RECEIVED, USDC, VERSE or fxVERSE' });
   }
@@ -127,7 +125,7 @@ module.exports = async function handler(req, res) {
     apiKey: apiKeyVal,
     webhookUrl: webhook,
     webhookSecret,
-    mode,
+    mode: 'direct',
     chains,
     settle: String(settle).toUpperCase(),
     unify,
@@ -143,13 +141,13 @@ module.exports = async function handler(req, res) {
   };
 
   await store.set(`merchant:${apiKeyVal}`, merchant);
-  await trackVerseEvent('Merchant Created', { mode, settle, chains: chains.join(',') });
+  await trackVerseEvent('Merchant Created', { delivery_mode: 'direct', settle, chains: chains.join(',') });
 
   const resp = {
     merchant_id:    merchantId,
     api_key:        apiKeyVal,
     webhook_secret: webhookSecret,
-    mode,
+    mode: 'direct',
     status: 'active',
     settlement: privy.settlementView(merchant),
   };

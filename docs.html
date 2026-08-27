@@ -67,7 +67,7 @@
 
     <h2>The three systems</h2>
     <div class="cards">
-      <a class="card" href="integrate-setup.html"><div class="t">Integrate Payment →</div><div class="d">Accept crypto on your platform. Each payment gets a one-time stealth address; we confirm on-chain and webhook your app.</div></a>
+      <a class="card" href="integrate-setup.html"><div class="t">Integrate Payment →</div><div class="d">Accept crypto on your platform. Payments settle directly to your primary wallet; we confirm on-chain and webhook your app.</div></a>
       <a class="card" href="potlock-create.html"><div class="t">Potlock →</div><div class="d">Private fundraising. Donors give to one-time addresses; only the running total is public, never who gave.</div></a>
       <div class="card" aria-disabled="true" style="opacity:.62"><div class="t">Payroll · Coming in Phase Two</div><div class="d">Business-owned scheduled payouts will launch alongside LiquidFlow's subscription model after independent review.</div></div>
       <a class="card" href="docs-api.html"><div class="t">API Reference →</div><div class="d">Every endpoint for merchants, payments, fundraisers and payroll, with request/response examples.</div></a>
@@ -77,13 +77,13 @@
     <p>This is the single rule the whole product is built around:</p>
     <div class="ok">🔒 <b>Liquid Flow can time and authorize, but never move funds.</b> Your spend key is shown to you once and is never stored on our servers. If Liquid Flow were fully compromised, no user money could be taken.</div>
     <ul>
-      <li><b>Payments &amp; fundraising:</b> deposits land at one-time stealth addresses only you can sweep, using a key we never hold.</li>
+      <li><b>Payments &amp; fundraising:</b> payments land directly in your merchant-owned primary wallet.</li>
       <li><b>Payroll:</b> funds sit in a contract <i>you own</i>; our trigger key can only release a company-defined payout on or after its scheduled time, to the recipient you set.</li>
     </ul>
 
     <h2>How a payment works</h2>
     <ol style="margin-left:20px">
-      <li><b>Request</b> — your platform calls <code>POST /api/payments</code>; we derive a fresh one-time stealth address.</li>
+      <li><b>Request</b> — your platform calls <code>POST /api/payments</code>; we return the merchant primary payment address.</li>
       <li><b>Pay</b> — the payer sends VERSE, fxVERSE or USDC to that address on the selected supported mainnet.</li>
       <li><b>Confirm</b> — our watcher verifies canonical token Transfer events at the required finality depth (also on-demand when you poll).</li>
       <li><b>Notify</b> — an HMAC-signed webhook reaches your app; verify it and re-check payment status before releasing high-value goods.</li>
@@ -103,7 +103,7 @@
     <pre><code># 1. Create a merchant (returns an API key)
 curl -X POST https://liquidflow-io.vercel.app/api/merchants \
   -H "Content-Type: application/json" \
-  -d '{"name":"Acme","mode":"stealth","chains":["eip155:1","eip155:137","eip155:8453"],"settle":"USDC","webhook":"https://acme.com/hook"}'
+  -d '{"name":"Acme","mode":"direct","chains":["eip155:1","eip155:137","eip155:8453"],"settle":"USDC","webhook":"https://acme.com/hook"}'
 
 # 2. Create a payment (use the api_key from step 1)
 curl -X POST https://liquidflow-io.vercel.app/api/payments \

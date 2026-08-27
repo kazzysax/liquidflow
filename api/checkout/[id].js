@@ -1,7 +1,7 @@
 // GET /api/checkout/:id — PUBLIC payer-safe view of a payment, for the hosted
 // checkout page (pay.html). The payment_id is the capability the payer holds (like a
 // Stripe checkout-session id): it exposes only what a payer needs to pay — never the
-// merchant's API key, webhook secret, or stealth ephemeral key (R).
+// merchant's API key or webhook secret.
 // Runs an on-demand on-chain check so a real deposit flips to confirmed within seconds.
 const store = require('../_lib/store');
 const { checkAndConfirm, assetConfig } = require('../_lib/chain');

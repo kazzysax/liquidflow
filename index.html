@@ -400,7 +400,7 @@
       <div class="feat reveal d3">
         <div class="fic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="#1E5BFF" stroke-width="1.7" stroke-linecap="round"/><circle cx="18" cy="18" r="2.4" stroke="#1E5BFF" stroke-width="1.7"/></svg></div>
         <h3>Stealth merchant privacy</h3>
-        <p>Every private checkout generates a fresh one-time address. Deposits cannot be directly linked to the merchant's sweep wallet or total balance, while payment amounts remain visible on-chain.</p>
+        <p>Every checkout sends funds directly to the merchant-owned primary wallet. LiquidFlow verifies the transfer on-chain and keeps the merchant in full control of withdrawals.</p>
       </div>
     </div>
   </div>
@@ -418,7 +418,7 @@
         </div>
         <div class="steps">
           <div class="step"><div class="num">1</div><h4>Create</h4><p>The merchant requests a payment and chooses VERSE or USDC, the network and settlement preference.</p></div>
-          <div class="step"><div class="num">2</div><h4>Pay</h4><p>LiquidFlow returns a fresh address and QR code. The customer pays from any compatible wallet—without connecting it.</p></div>
+          <div class="step"><div class="num">2</div><h4>Pay</h4><p>LiquidFlow returns the merchant payment address and QR code. The customer pays from any compatible wallet—without connecting it.</p></div>
           <div class="step"><div class="num">3</div><h4>Verify</h4><p>The watcher checks the canonical token contract, received amount and finality on the selected mainnet.</p></div>
           <div class="step"><div class="num">4</div><h4>Settle</h4><p>The merchant receives a signed confirmation and can keep the asset or unify USDC to the preferred network.</p></div>
         </div>

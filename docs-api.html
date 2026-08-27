@@ -66,11 +66,11 @@
 
     <h2>Merchants</h2>
     <h3><span class="m post">POST</span> /api/merchants</h3>
-    <p>Create a merchant and receive an API key. In <code>stealth</code> mode the EVM spend and view keys are shown <b>once</b>; store them offline because LiquidFlow does not retain the spend key.</p>
+    <p>Create a merchant and receive an API key. LiquidFlow provisions one merchant-owned Privy wallet that receives payments directly.</p>
     <pre><code>curl -X POST https://liquidflow-io.vercel.app/api/merchants \
   -H "Content-Type: application/json" -d '{
   "name": "Acme",
-  "mode": "stealth",
+  "mode": "direct",
   "chains": ["eip155:1", "eip155:137", "eip155:8453"],
   "settle": "USDC",
   "payout": "",
@@ -82,7 +82,7 @@
 
     <h2>Payments</h2>
     <h3><span class="m post">POST</span> /api/payments</h3>
-    <p>Authenticated. Creates a payment and derives a one-time deposit address (stealth) for the chain.</p>
+    <p>Authenticated. Creates a payment using the merchant primary wallet as the deposit address.</p>
     <pre><code>curl -X POST https://liquidflow-io.vercel.app/api/payments \
   -H "Authorization: Bearer lf_live_…" \
   -H "Content-Type: application/json" -d '{

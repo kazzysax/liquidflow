@@ -3,18 +3,9 @@
 //   GET  — list all payments for the authenticated merchant (newest first)
 const crypto = require('crypto');
 const store  = require('../_lib/store');
-const { deriveDepositAddress } = require('../_lib/crypto');
-const ed = require('../_lib/stealth_ed25519');
 const { trackVerseEvent } = require('../_lib/verse-analytics');
-const privy = require('../_lib/privy');
-const { CHECKOUT_TTL_MS, ACTIVE_PAYMENT_STATUSES, checkAndConfirm, currentBlock, assetConfig, assetsForChain, assetOk, isValidBaseAmount, confirmedBalance, chainSupported, chainDisabledReason } = require('../_lib/chain');
-
-// Derive a stealth deposit address for the given chain from a recipient's meta-keys.
-function deriveForChain(chain, ent, paymentId) {
-  if (chain === 'solana') return ed.solanaAddress(ent.P_spend_ed, ent.P_view_ed);
-  if (chain === 'sui')    return ed.suiAddress(ent.P_spend_ed, ent.P_view_ed);
-  return deriveDepositAddress(ent.P_spend, ent.P_view, paymentId); // eip155 (secp256k1)
-}
+const chainEngine = require('../_lib/chain');
+const { CHECKOUT_TTL_MS, ACTIVE_PAYMENT_STATUSES, checkAndConfirm, assetConfig, assetsForChain, assetOk, isValidBaseAmount, chainSupported, chainDisabledReason } = chainEngine;
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -41,7 +32,7 @@ function publicView(p) {
     token_contract:  cfg ? cfg.contract : null,
     status:          p.status,
     label:           p.label || null,
-    privacy_mode:    p.mode,
+    delivery_mode:   'direct',
     created_at:      p.createdAt,
     confirmed_at:    p.confirmedAt || null,
     received_amount: p.receivedAmount || '0',
@@ -122,70 +113,42 @@ module.exports = async function handler(req, res) {
   if (!assetOk(chain, asset)) {
     return res.status(400).json({ error: `${asset} is not supported on ${chain}`, supported: assetsForChain(chain).map(a => a.symbol) });
   }
-  // Solana/Sui use ed25519 stealth derivation, which only stealth-mode merchants have keys for.
-  if ((chain === 'solana' || chain === 'sui') && merchant.mode !== 'stealth') {
-    return res.status(400).json({ error: 'Solana and Sui require a stealth-mode merchant' });
-  }
 
   const paymentId = 'pay_' + crypto.randomBytes(8).toString('hex');
   const expiresAt = Date.now() + CHECKOUT_TTL_MS;
 
-  let depositAddress, R = null, baselineBalance = null, privyWalletId = null;
+  // Every checkout pays the merchant's single primary wallet directly.
+  // Confirmation keys off a confirmed balance increase because the address is reused.
   const privyMerchant = Boolean(merchant.privyUserId && merchant.privyWalletAddress);
-  if (privyMerchant && merchant.mode === 'stealth') {
-    // Fresh payment wallet, owned by the merchant's Privy identity.
-    try {
-      const wallet = await privy.createPaymentWallet(merchant.privyUserId, paymentId);
-      depositAddress = wallet.walletAddress;
-      privyWalletId = wallet.walletId;
-    } catch (error) {
-      console.error('Privy payment wallet creation failed:', error && error.message);
-      return res.status(502).json({ error: 'could not create the merchant-owned payment wallet; please retry' });
-    }
-  } else if (merchant.mode === 'stealth') {
-    // Preserve the original key-derived model for legacy gateways.
-    const result = deriveForChain(chain, merchant, paymentId);
-    depositAddress = result.depositAddress;
-    R = result.R; // stored server-side only — never returned to payer
-  } else {
-    // Instant mode reuses the merchant's primary Privy wallet. Legacy gateways
-    // continue using their configured payout address.
-    // No synthetic fallback — a hashed pseudo-address would be unspendable (lost funds).
-    const primaryAddress = privyMerchant ? merchant.privyWalletAddress : merchant.payout;
-    if (!/^0x[0-9a-fA-F]{40}$/.test(String(primaryAddress || ''))) {
-      return res.status(400).json({ error: 'merchant has no valid primary wallet configured' });
-    }
-    depositAddress = primaryAddress;
-    privyWalletId = privyMerchant ? merchant.privyWalletId : null;
-    // The payout wallet is reused across payments and carries a standing balance,
-    // so confirmation must key off a RISE in balance, not the absolute amount.
-    // Capture the baseline now; checkAndConfirm confirms only when bal >= baseline+amount.
-    // Read at the same confirmation depth the watcher uses so baseline and confirm
-    // reads are consistent. Fail the request if we can't read it — an instant payment
-    // with no baseline is unconfirmable, so we never create one (fail closed).
-    // A static payout address cannot distinguish two overlapping invoices for the
-    // same token. Fail closed instead of allowing one transfer to satisfy both.
-    const existingIds = await store.smembers(`merchant:${key}:payments`);
-    for (const existingId of existingIds) {
-      const existing = await store.get(`payment:${existingId}`);
-      const existingCfg = existing && assetConfig(existing.chain, existing.asset);
-      const requestedCfg = assetConfig(chain, asset);
-      if (existing && existing.status === 'awaiting_payment' && existing.chain === chain &&
-          existingCfg && requestedCfg && existingCfg.contract.toLowerCase() === requestedCfg.contract.toLowerCase() &&
-          Date.now() < existing.expiresAt) {
-        return res.status(409).json({ error: 'an unpaid invoice already exists for this asset and network; use stealth mode for concurrent invoices' });
-      }
-    }
-    try {
-      baselineBalance = (await confirmedBalance(chain, depositAddress, asset)).toString();
-    } catch (e) {
-      return res.status(503).json({ error: 'could not read chain state to baseline this payment; please retry' });
+  const depositAddress = privyMerchant ? merchant.privyWalletAddress : merchant.payout;
+  const privyWalletId = privyMerchant ? merchant.privyWalletId : null;
+  if (!/^0x[0-9a-fA-F]{40}$/.test(String(depositAddress || ''))) {
+    return res.status(400).json({ error: 'merchant has no valid primary wallet configured' });
+  }
+
+  // A shared wallet cannot safely distinguish concurrent unpaid invoices for the
+  // same token and network. Reject that case instead of double-confirming one transfer.
+  const existingIds = await store.smembers('merchant:' + key + ':payments');
+  for (const existingId of existingIds) {
+    const existing = await store.get('payment:' + existingId);
+    const existingCfg = existing && assetConfig(existing.chain, existing.asset);
+    const requestedCfg = assetConfig(chain, asset);
+    if (existing && ACTIVE_PAYMENT_STATUSES.has(existing.status) && existing.chain === chain &&
+        existingCfg && requestedCfg && existingCfg.contract.toLowerCase() === requestedCfg.contract.toLowerCase() &&
+        Date.now() < existing.expiresAt) {
+      return res.status(409).json({ error: 'an unpaid invoice already exists for this asset and network' });
     }
   }
 
+  let baselineBalance;
+  try {
+    baselineBalance = (await chainEngine.confirmedBalance(chain, depositAddress, asset)).toString();
+  } catch (e) {
+    return res.status(503).json({ error: 'could not read chain state to baseline this payment; please retry' });
+  }
   let startBlock;
   try {
-    startBlock = (await currentBlock(chain)).toString();
+    startBlock = (await chainEngine.currentBlock(chain)).toString();
   } catch (e) {
     return res.status(503).json({ error: 'could not anchor this invoice to the chain; please retry' });
   }
@@ -199,11 +162,10 @@ module.exports = async function handler(req, res) {
     chain,
     label: label || '',
     depositAddress,
-    R,
     privyWalletId,
     walletProvider: privyMerchant ? 'PRIVY' : 'LEGACY',
-    baselineBalance, // instant mode only — null for stealth (fresh address)
-    mode: merchant.mode,
+    baselineBalance,
+    mode: 'direct',
     status: 'awaiting_payment',
     createdAt: Date.now(),
     expiresAt,
@@ -217,7 +179,7 @@ module.exports = async function handler(req, res) {
   await trackVerseEvent('Payment Created', {
     asset: payment.asset,
     chain: payment.chain,
-    privacy_mode: payment.mode,
+    delivery_mode: 'direct',
   });
 
   return res.status(201).json(publicView(payment));

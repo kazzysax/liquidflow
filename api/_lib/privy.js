@@ -49,21 +49,6 @@ async function provisionMerchant(email, merchantId) {
   };
 }
 
-async function createPaymentWallet(userId, paymentId) {
-  const privy = await getClient();
-  if (!privy) throw new Error('Privy is not configured');
-  if (!userId || !paymentId) throw new Error('Privy user and payment ID are required');
-
-  const wallet = await privy.wallets().create({
-    chain_type: 'ethereum',
-    owner: { user_id: userId },
-    display_name: `LiquidFlow private payment ${paymentId}`,
-    external_id: paymentId,
-    idempotency_key: paymentId,
-  });
-  return { walletId: wallet.id, walletAddress: wallet.address };
-}
-
 function settlementView(merchant) {
   const walletAddress = merchant && merchant.privyWalletAddress;
   if (!merchant || !merchant.privyUserId) {
@@ -73,7 +58,7 @@ function settlementView(merchant) {
       status: 'legacy',
       primary_wallet: (merchant && merchant.payout) || null,
       sweep_wallet: (merchant && merchant.payout) || null,
-      automatic_sweep: false,
+      direct_settlement: true,
       control: 'legacy merchant keys',
     };
   }
@@ -82,17 +67,16 @@ function settlementView(merchant) {
     custody: 'merchant_owned',
     status: walletAddress ? 'active' : 'not_provisioned',
     primary_wallet: walletAddress || null,
-    vault_wallet: walletAddress || null,
+    deposit_wallet: walletAddress || null,
     sweep_wallet: null,
-    automatic_sweep: false,
+    direct_settlement: true,
     control: 'merchant_only',
-    restriction: 'Only the authenticated merchant can sign transfers from these Privy wallets.',
+    restriction: 'Only the authenticated merchant can sign transfers from the primary Privy wallet.',
   };
 }
 
 module.exports = {
   configured,
   provisionMerchant,
-  createPaymentWallet,
   settlementView,
 };

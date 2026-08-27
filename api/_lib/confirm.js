@@ -31,7 +31,7 @@ async function confirmPayment(payment, confirmations) {
   await trackVerseEvent('Payment Confirmed', {
     asset: payment.asset,
     chain: payment.chain,
-    privacy_mode: payment.mode,
+    delivery_mode: 'direct',
   });
 
   let webhookSent = false;

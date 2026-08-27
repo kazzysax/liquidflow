@@ -108,7 +108,7 @@
       <span class="step-line"></span>
       <div class="step" data-s="1"><span class="num">2</span>Settlement</div>
       <span class="step-line"></span>
-      <div class="step" data-s="2"><span class="num">3</span>Privacy</div>
+      <div class="step" data-s="2"><span class="num">3</span>Settlement</div>
       <span class="step-line"></span>
       <div class="step" data-s="3"><span class="num">4</span>Payout</div>
       <span class="step-line"></span>
@@ -169,31 +169,18 @@
         </div>
       </div>
 
-      <!-- STEP 3: privacy -->
+      <!-- STEP 3: direct settlement -->
       <div class="panel" data-panel="2">
-        <h1>Payment privacy</h1>
-        <div class="sub">Control how visible your payments are on-chain. All options are non-custodial.</div>
-
+        <h1>Direct settlement</h1>
+        <div class="sub">Every payment goes straight to your primary merchant wallet.</div>
         <div class="field">
-          <label>Deposit address mode</label>
-          <div class="hint">How payers receive an address to pay into.</div>
-          <div style="display:flex;flex-direction:column;gap:9px">
-            <button class="opt" aria-pressed="false" data-v="instant" onclick="pickMode(this)" style="justify-content:flex-start">
-              <span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span>
-              <span class="nm">Instant forward<span class="meta">One primary Privy address owned by your merchant account. Public and fast.</span></span>
-            </button>
-            <button class="opt" aria-pressed="true" data-v="stealth" onclick="pickMode(this)" style="justify-content:flex-start">
-              <span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 12l5 5L20 6"/></svg></span>
-              <span class="nm">Private (stealth)<span class="meta">Fresh merchant-owned Privy address per payment. Hides your primary balance.</span></span>
-            </button>
-          </div>
-          <div class="privacy-note" id="privNote" style="display:flex">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2" style="flex-shrink:0;margin-top:1px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-            <span>Private mode creates a fresh address under your Privy account for every checkout. LiquidFlow can verify the payment but cannot move the funds; you manage every wallet from your dashboard.</span>
+          <label>Payment destination</label>
+          <div class="privacy-note" style="display:flex">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            <span>LiquidFlow creates one merchant-owned Privy wallet. Checkout payments arrive there directly, and withdrawals are managed from the merchant dashboard.</span>
           </div>
         </div>
       </div>
-
       <!-- STEP 4: merchant identity + webhook -->
       <div class="panel" data-panel="3">
         <h1>Merchant wallet &amp; notifications</h1>
@@ -237,7 +224,7 @@
 
 <script>
   let step=0; const TOTAL=5;
-  const cfg={ name:'', email:'', chains:['eip155:1','eip155:137','eip155:8453'], settle:'AS_RECEIVED', unify:false, dex:null, mode:'stealth', webhook:'' };
+  const cfg={ name:'', email:'', chains:['eip155:1','eip155:137','eip155:8453'], settle:'AS_RECEIVED', unify:false, dex:null, mode:'direct', webhook:'' };
 
   // multi-select grids
   function bindGrid(id, key){
@@ -278,12 +265,6 @@
     }
   }
 
-  function pickMode(el){
-    document.querySelectorAll('[data-panel="2"] .opt').forEach(o=>o.setAttribute('aria-pressed','false'));
-    el.setAttribute('aria-pressed','true'); cfg.mode=el.dataset.v;
-    document.getElementById('privNote').style.display=cfg.mode==='stealth'?'flex':'none';
-  }
-
   function renderReview(){
     cfg.name=document.getElementById('merchantName').value.trim();
     cfg.email=document.getElementById('merchantEmail').value.trim();
@@ -295,7 +276,7 @@
       ['Chains', cfg.chains.join(', ')||'—'],
       ['Settlement currency', cfg.settle],
       ['Liquidity unification', cfg.unify?('On · via '+cfg.dex):'Off (funds stay as sent)'],
-      ['Privacy mode', cfg.mode==='stealth'?'Private (fresh Privy wallet per payment)':'Instant (primary Privy wallet)'],
+      ['Payment delivery', 'Direct to primary Privy wallet'],
       ['Wallet custody', 'Merchant-owned through Privy · no sweep address required'],
       ['Webhook', cfg.webhook||'—'],
     ];
@@ -315,7 +296,6 @@
     if(step===0 && !cfg.chains.length){ alert('Select at least one supported mainnet.'); return false; }
     if(step===1 && !document.getElementById('settleCur').value){ alert('Choose a settlement policy.'); return false; }
     if(step===1 && cfg.unify && cfg.dex!=='LIQUIDFLOW_APPROVED_ROUTES'){ alert('Choose the approved DEX route provider.'); return false; }
-    if(step===2 && !cfg.mode){ alert('Choose a deposit address mode.'); return false; }
     if(step===3){
       const name=document.getElementById('merchantName').value.trim();
       const email=document.getElementById('merchantEmail').value.trim();

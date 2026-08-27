@@ -5,12 +5,8 @@ process.env.DISABLE_VERSE_ANALYTICS = '1';
 
 const store = require('../api/_lib/store');
 const chain = require('../api/_lib/chain');
-const privy = require('../api/_lib/privy');
 chain.currentBlock = async () => 123456n;
-privy.createPaymentWallet = async (userId, paymentId) => ({
-  walletId: `wallet_${paymentId}`,
-  walletAddress: '0x3333333333333333333333333333333333333333',
-});
+chain.confirmedBalance = async () => 0n;
 const paymentsHandler = require('../api/payments');
 
 function responseCapture() {
@@ -25,11 +21,11 @@ function responseCapture() {
   };
 }
 
-test('private Privy payment uses a fresh merchant-owned wallet', async () => {
+test('payment goes directly to the merchant primary wallet', async () => {
   const key = 'lf_live_privy_payment_test';
   await store.set(`merchant:${key}`, {
     id: 'm_privy_payment_test',
-    mode: 'stealth',
+    mode: 'direct',
     chains: ['eip155:1'],
     privyUserId: 'did:privy:test-merchant',
     privyWalletId: 'wallet_primary',
@@ -41,14 +37,13 @@ test('private Privy payment uses a fresh merchant-owned wallet', async () => {
   await paymentsHandler({
     method: 'POST',
     headers: { authorization: `Bearer ${key}` },
-    body: { amount: '1', asset: 'VERSE', chain: 'eip155:1', label: 'Private test' },
+    body: { amount: '1', asset: 'VERSE', chain: 'eip155:1', label: 'Direct test' },
   }, res);
 
   assert.equal(res.code, 201);
-  assert.equal(res.body.deposit_address, '0x3333333333333333333333333333333333333333');
+  assert.equal(res.body.deposit_address, '0x2222222222222222222222222222222222222222');
   const stored = await store.get(`payment:${res.body.payment_id}`);
   assert.equal(stored.walletProvider, 'PRIVY');
-  assert.equal(stored.privyWalletId, `wallet_${res.body.payment_id}`);
-  assert.equal(stored.R, null);
-  assert.equal(stored.baselineBalance, null);
-});
+  assert.equal(stored.privyWalletId, 'wallet_primary');
+  assert.equal(stored.mode, 'direct');
+  assert.equal(stored.baselineBalance, '0');});

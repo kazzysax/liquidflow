@@ -71,7 +71,7 @@ function WalletPanel() {
   async function transfer() {
     setMessage('');
     if (!identityMatches) return setMessage('Sign in with the registered merchant email first.');
-    if (!chosen) return setMessage('Choose a funded wallet.');
+    if (!chosen) return setMessage('Choose a funded asset.');
     if (!isAddress(recipient)) return setMessage('Enter a valid EVM destination address.');
     let value;
     try {
@@ -103,7 +103,7 @@ function WalletPanel() {
     <div className="wallet-console-head">
       <div>
         <h3>Withdraw assets</h3>
-        <p>Move VERSE, fxVERSE, or USDC from any funded Privy wallet to an address you choose. Only you can approve.</p>
+        <p>Withdraw VERSE, fxVERSE, or USDC from your primary merchant wallet. Only you can approve.</p>
       </div>
       <button className="btn btn-ghost btn-sm" onClick={refresh} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh balances'}</button>
     </div>
@@ -128,10 +128,10 @@ function WalletPanel() {
       <div className="wallet-transfer">
         <div className="wallet-verified">✓ Merchant identity verified · {short(profile.settlement.primary_wallet)}</div>
         {holdings.length ? <>
-          <label>Funded wallet and asset</label>
+          <label>Asset to withdraw</label>
           <select className="lf-input" value={selected} onChange={event => setSelected(event.target.value)}>
             {holdings.map(item => <option key={`${item.address}:${item.chain}:${item.asset}`} value={`${item.address}:${item.chain}:${item.asset}`}>
-              {item.asset} on {NETWORKS[item.chain]?.name} · {formatUnits(BigInt(item.amount_base), item.decimals)} · {short(item.address)}
+              {item.asset} on {NETWORKS[item.chain]?.name} · {formatUnits(BigInt(item.amount_base), item.decimals)}
             </option>)}
           </select>
           <div className="wallet-transfer-grid">
@@ -140,11 +140,10 @@ function WalletPanel() {
           </div>
           <button className="btn" onClick={transfer}>Review withdrawal</button>
           <div className="wallet-gas-note">Network gas is paid by the selected wallet: ETH on Ethereum/Base and POL on Polygon.</div>
-        </> : <div className="wallet-muted">Funded payment wallets will appear here automatically.</div>}
+        </> : <div className="wallet-muted">Payments sent to your primary wallet will appear here automatically.</div>}
         <button className="wallet-signout" onClick={logout}>Sign out of Privy</button>
       </div>}
     {message && <div className="wallet-message">{message}</div>}
-    {portfolio?.payment_wallets_total > portfolio?.payment_wallets_scanned && <div className="wallet-muted">Showing the newest {portfolio.payment_wallets_scanned} private payment wallets.</div>}
   </div>;
 }
 
