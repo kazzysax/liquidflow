@@ -89,6 +89,11 @@
 
     <div class="card">
       <div class="fg">
+        <label class="fl" for="creatorEmail">Creator email</label>
+        <input class="input" id="creatorEmail" type="email" placeholder="you@example.com">
+      </div>
+
+      <div class="fg">
         <label class="fl" for="title">Title</label>
         <input class="input" id="title" type="text" placeholder="e.g. Rebuild the community library">
       </div>
@@ -97,7 +102,7 @@
         <label class="fl" for="goal">Goal amount</label>
         <div class="suffix-wrap">
           <input class="input" id="goal" type="text" placeholder="2" style="padding-right:120px;">
-          <span class="sfx">test ETH</span>
+          <span class="sfx" id="goalAsset">VERSE</span>
         </div>
       </div>
 
@@ -108,17 +113,18 @@
 
       <div class="fg">
         <label class="fl" for="chain">Settlement chain</label>
-        <select class="input" id="chain">
-          <option value="eip155:84532">Base (ETH)</option>
-          <option value="eip155:5042002">Arc (USDC)</option>
-          <option value="solana">Solana (SOL)</option>
-          <option value="sui">Sui (SUI)</option>
+        <select class="input" id="chain" onchange="syncCampaignAsset()">
+          <option value="eip155:1|VERSE">Ethereum · VERSE</option>
+          <option value="eip155:1|USDC">Ethereum · USDC</option>
+          <option value="eip155:137|FXVERSE">Polygon · fxVERSE</option>
+          <option value="eip155:137|USDC">Polygon · USDC</option>
+          <option value="eip155:8453|USDC">Base · USDC</option>
         </select>
       </div>
 
       <div class="anychain">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="#185FA5" stroke-width="1.7"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="#185FA5" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <span>Donations are private — a one-time stealth address is generated per donor on the chain you pick.</span>
+        <span>Donations settle directly to your creator-owned primary Privy wallet on the selected network.</span>
       </div>
 
       <button class="btn-create" onclick="generate()">
@@ -143,32 +149,36 @@
   </div>
 
 <script>
+  function syncCampaignAsset(){ document.getElementById('goalAsset').textContent=document.getElementById('chain').value.split('|')[1].replace('FXVERSE','fxVERSE'); }
   async function generate(){
     var btn=document.querySelector('.btn-create');
     var title=document.getElementById('title').value.trim();
+    var email=document.getElementById('creatorEmail').value.trim();
     var goal=parseFloat((document.getElementById('goal').value||'').replace(/[^0-9.]/g,''))||0;
     var desc=document.getElementById('desc').value.trim();
     if(!title||!goal){ alert('Add a title and a goal.'); return; }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert('Add a valid creator email.'); return; }
     var old=btn.innerHTML; btn.disabled=true; btn.textContent='Creating…';
     try{
       var r=await fetch('/api/fundraisers',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({title:title, description:desc, goal:goal, chain:(document.getElementById('chain')||{}).value||'eip155:84532'})
+        body:JSON.stringify({title:title, description:desc, goal:goal, email:email, chain:document.getElementById('chain').value.split('|')[0], asset:document.getElementById('chain').value.split('|')[1]})
       });
       if(!r.ok){ var e=await r.json().catch(()=>({})); throw new Error(e.error||'failed'); }
       var d=await r.json();
       var link=location.origin+'/potlock-private.html?id='+d.id;
       var linkEl=document.getElementById('link'); if(linkEl) linkEl.textContent=link;
       linkEl && linkEl.setAttribute('data-href', link);
-      // surface the campaign spend key (only shown once)
+      try{ localStorage.setItem('lf_dash_key',d.api_key); }catch(e){}
       var gen=document.getElementById('gen');
-      if(!document.getElementById('frSpend')){
-        var note=document.createElement('div');
-        note.id='frSpend';
-        note.style.cssText='margin-top:14px;background:#FAEEDA;border:1px solid #EAD3A2;border-radius:10px;padding:11px 13px;font-size:12px;color:#854F0B;word-break:break-all';
-        note.innerHTML='<b>Save your campaign spend key</b> — only this can sweep donations to your wallet. Shown once:<br><code style="font-size:11px">'+d.spend_key+'</code>';
-        gen.appendChild(note);
+      var walletNote=document.getElementById('campaignWallet');
+      if(!walletNote){
+        walletNote=document.createElement('div');
+        walletNote.id='campaignWallet';
+        walletNote.style.cssText='margin-top:14px;background:#EAF3FF;border:1px solid #B8D4FF;border-radius:10px;padding:11px 13px;font-size:12px;color:#185FA5;word-break:break-all';
+        gen.appendChild(walletNote);
       }
+      walletNote.innerHTML='<b>Direct settlement wallet</b><br><code style="font-size:11px">'+d.primary_wallet+'</code><br>Your dashboard key was saved on this device. <a href="dashboard.html">Open dashboard</a>.';
       var open=document.getElementById('openCampaign');
       if(!open){
         open=document.createElement('a'); open.id='openCampaign'; open.href=link;

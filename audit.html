@@ -8,12 +8,12 @@
 <div class="item"><h3 class="done">Canonical assets enforced</h3><p>Only VERSE on Ethereum, fxVERSE on Polygon, and canonical USDC on Ethereum, Polygon and Base are accepted. Clients cannot submit token contracts.</p></div>
 <div class="item"><h3 class="done">Invoice-level transfer accounting</h3><p>Invoices anchor to a start block. Finalized ERC-20 Transfer logs identify the payer, transaction, amount and mining time with deduplication.</p></div>
 <div class="item"><h3 class="done">Wrong and late payments classified</h3><p>Exact, partial, excess, expired, late and multi-sender transfers are separated. Refund destinations are locked to the observed sender and require merchant authorization.</p></div>
-<div class="item"><h3 class="done">Non-custodial recovery verified</h3><p>The merchant receives recovery material once; LiquidFlow does not retain the spend key. Recovery tooling validates canonical contracts and required gas.</p></div>
-<div class="item"><h3 class="done">Unsafe pooled settlement disabled</h3><p>The shared-balance ERC-20 route in <code>PaymentGate</code> always reverts. Checkout uses an invoice-specific generated address.</p></div>
+<div class="item"><h3 class="done">Direct primary-wallet settlement verified</h3><p>Payments and donations are assigned to the owner-controlled primary wallet. LiquidFlow records confirmed transfers without holding a withdrawal key.</p></div>
+<div class="item"><h3 class="done">Unsafe pooled settlement disabled</h3><p>The shared-balance ERC-20 route in <code>PaymentGate</code> always reverts. Checkout uses the merchant primary wallet with invoice-level baselines and transfer-log matching.</p></div>
 <div class="item"><h3 class="done">Atomic confirmation and signed webhooks</h3><p>A distributed lock prevents duplicate confirmation transitions. Webhooks use HMAC signatures and unique delivery identifiers.</p></div>
 <h2>External gates before unrestricted mainnet</h2>
-<div class="item"><h3 class="open">Independent security review required</h3><p>A qualified third party must assess the stealth cryptography, contracts and operational key model. Internal tests cannot certify them.</p></div>
-<div class="item"><h3 class="open">Small-value mainnet rehearsal required</h3><p>Record all five asset/network routes and exact, partial, excess, recovery and refund cases using controlled funds.</p></div>
+<div class="item"><h3 class="open">Independent security review required</h3><p>A qualified third party must assess wallet provisioning, payment verification, contracts and the operational key model. Internal tests cannot certify them.</p></div>
+<div class="item"><h3 class="open">Small-value mainnet rehearsal required</h3><p>Record all five asset/network routes and exact, partial, excess, withdrawal and refund cases using controlled funds.</p></div>
 <div class="item"><h3 class="open">Automated fund movement remains restricted</h3><p>Gas sponsorship, signed refunds, automated settlement retries and VERSE DEX routing remain disabled or merchant-controlled until separately approved.</p></div>
 <h2>Integration rule</h2><p class="note">Verify webhook signatures, deduplicate <code>LF-Webhook-Id</code>, and call <code>GET /api/payments/:id</code> before releasing valuable goods. See the current <a href="docs-api.html">API reference</a>.</p>
 </main></body></html>

@@ -76,7 +76,7 @@
   "payout": "",
   "webhook": "https://acme.com/lf/hook"
 }'
-# Returns an active merchant_id, api_key, webhook_secret, spend_key and view_key. No subscription or activation payment is required.</code></pre>
+# Returns an active merchant_id, api_key, webhook_secret, and primary wallet. No subscription or activation payment is required.</code></pre>
     <h3><span class="m get">GET</span> /api/merchants</h3>
     <p>Authenticated. Returns the active merchant profile (name, mode, chains, payout, webhook secret, created_at).</p>
 
@@ -120,7 +120,7 @@
 
     <h2>Fundraisers (Potlock)</h2>
     <h3><span class="m post">POST</span> /api/fundraisers</h3>
-    <p>Create a private fundraising campaign with its own stealth keypair. Returns a shareable URL and the sweep key (once).</p>
+    <p>Create a fundraiser with a creator-owned primary Privy wallet. Returns a shareable URL, dashboard key, and wallet address.</p>
     <pre><code>curl -X POST https://liquidflow-io.vercel.app/api/fundraisers \
   -H "Content-Type: application/json" -d '{
   "title": "Rebuild the library", "description":"…",
@@ -129,7 +129,7 @@
 # Returns id, slug, share URL and the one-time spend key.</code></pre>
     <h3><span class="m get">GET</span> /api/fundraisers</h3><p>Public list of campaigns with live totals (computed from confirmed on-chain donations).</p>
     <h3><span class="m get">GET</span> /api/fundraisers/:id</h3><p>Campaign details: <code>raised</code>, <code>pct</code>, <code>donation_count</code>, <code>recent[]</code>, <code>symbol</code>, <code>decimals</code>.</p>
-    <h3><span class="m post">POST</span> /api/fundraisers/:id</h3><p>Make a private donation. Body <code>{ "amount": "&lt;base units&gt;" }</code> → returns a one-time <code>deposit_address</code>.</p>
+    <h3><span class="m post">POST</span> /api/fundraisers/:id</h3><p>Create a direct donation request. Body <code>{ "amount": "&lt;base units&gt;" }</code> → returns the campaign primary <code>deposit_address</code>.</p>
 
     <h2>Payroll</h2>
     <p>The business deploys its <b>own</b> <code>PayrollScheduler</code> (native) or <code>PayrollSchedulerERC20</code> (USDC) contract from its wallet, then registers it so Liquid Flow's trigger key can automate due releases. See <a href="security.html">Security</a> for the non-custodial guarantee.</p>

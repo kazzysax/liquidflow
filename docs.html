@@ -63,7 +63,7 @@
     <h1>Liquid Flow overview</h1>
     <p class="lead">LiquidFlow is the non-custodial payment portal for Verse dApps. It accepts VERSE, fxVERSE and canonical USDC through generated-address checkout, finality-aware verification and signed webhooks.</p>
 
-    <div class="note">⚠️ <b>Testnet.</b> Everything described here runs on public testnets and is <b>unaudited</b>. Do not move real funds. An independent cryptographic and smart-contract audit gates mainnet — see the <a href="roadmap.html">Roadmap</a> and <a href="security.html">Security</a>.</div>
+    <div class="note"><b>Mainnet.</b> LiquidFlow verifies supported token transfers on Ethereum, Polygon and Base. Use the documented token contracts and complete your own production security review before handling material value.</div>
 
     <h2>The three systems</h2>
     <div class="cards">
@@ -92,9 +92,10 @@
     <h2>Supported chains</h2>
     <p>The submission engine is intentionally limited to the documented EVM mainnets and canonical token contracts:</p>
     <table>
-      <tr><th>Chain</th><th>Identifier</th><th>Accepted assets</th><th>Stealth curve</th></tr>
-      <tr><td>Ethereum</td><td><code>eip155:1</code></td><td>VERSE, USDC</td><td>secp256k1</td></tr>
-      <tr><td>Polygon</td><td><code>eip155:137</code></td><td>fxVERSE, USDC</td><td>secp256k1</td></tr>
+      <tr><th>Chain</th><th>Identifier</th><th>Accepted assets</th><th>Settlement</th></tr>
+      <tr><td>Ethereum</td><td><code>eip155:1</code></td><td>VERSE, USDC</td><td>Direct to primary wallet</td></tr>
+      <tr><td>Polygon</td><td><code>eip155:137</code></td><td>fxVERSE, USDC</td><td>Direct to primary wallet</td></tr>
+      <tr><td>Base</td><td><code>eip155:8453</code></td><td>USDC</td><td>Direct to primary wallet</td></tr>
       <tr><td>Base</td><td><code>eip155:8453</code></td><td>USDC</td><td>secp256k1</td></tr>
     </table>
 
@@ -115,11 +116,11 @@ curl -X POST https://liquidflow-io.vercel.app/api/payments \
     <h2>Keep reading</h2>
     <div class="cards">
       <a class="card" href="docs-api.html"><div class="t">API Reference</div><div class="d">Endpoints, auth, webhooks, examples.</div></a>
-      <a class="card" href="security.html"><div class="t">Security &amp; audits</div><div class="d">Stealth crypto, contracts, and the path to audit.</div></a>
+      <a class="card" href="security.html"><div class="t">Security &amp; audits</div><div class="d">Payment verification, controls, and audit status.</div></a>
       <a class="card" href="roadmap.html"><div class="t">Roadmap</div><div class="d">What's live, the audit plan, and AI integration.</div></a>
       <a class="card" href="gateway.html"><div class="t">Access Gateway</div><div class="d">Set up a system and get your API key.</div></a>
     </div>
   </div>
-  <div class="foot">Liquid Flow provides software infrastructure for programmable, non-custodial transfers. Testnet only — not a bank, money transmitter, or investment adviser. Confirm your obligations with counsel before mainnet.</div>
+  <div class="foot">Liquid Flow provides software infrastructure for programmable, non-custodial transfers. It is not a bank, money transmitter, or investment adviser. Confirm your obligations with counsel before production use.</div>
 </body>
 </html>

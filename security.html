@@ -58,7 +58,7 @@
     <h2>What Liquid Flow can and cannot do</h2>
     <table>
       <tr><th>Action</th><th>Liquid Flow</th></tr>
-      <tr><td>Derive a one-time deposit address</td><td class="yes">Yes</td></tr>
+      <tr><td>Provide the recipient primary wallet</td><td class="yes">Yes</td></tr>
       <tr><td>Watch chains &amp; confirm deposits</td><td class="yes">Yes</td></tr>
       <tr><td>Trigger a <i>scheduled, company-defined</i> payroll payout at its due time</td><td class="yes">Yes</td></tr>
       <tr><td>Hold a key that can move a merchant's / campaign's funds</td><td class="no">Never</td></tr>
@@ -66,22 +66,14 @@
       <tr><td>Withdraw, redirect, or freeze user funds</td><td class="no">Never</td></tr>
     </table>
 
-    <h2>Stealth addresses (payments &amp; fundraising)</h2>
-    <p>Every payment and donation lands at a fresh <b>one-time stealth address</b> derived from the recipient's published meta-keys. It uses a dual-key scheme (view + spend), the same idea as EIP-5564 / Monero-style stealth:</p>
-    <pre><code>shared secret  s = H(r · P_view) = H(k_view · R)
-one-time key   P = P_spend + s · G          // the deposit address</code></pre>
+    <h2>Direct primary-wallet settlement</h2>
+    <p>Every payment and donation is addressed directly to the merchant- or creator-owned primary Privy wallet. LiquidFlow verifies the supported token transfer on-chain and records its status, while the wallet owner retains withdrawal authority.</p>
     <ul>
-      <li>The recipient <b>detects</b> incoming payments with their <b>view key</b>.</li>
-      <li>Only the <b>spend key</b> (returned to the recipient once, never stored by Liquid Flow) can move the funds.</li>
-      <li>Payers and the recipient's main wallet stay <b>unlinked</b> on-chain.</li>
+      <li>No pooled custody or server-held spend key is required.</li>
+      <li>Only canonical VERSE, fxVERSE and USDC routes are accepted.</li>
+      <li>The dashboard groups confirmed balances and withdrawals under one primary wallet.</li>
     </ul>
-    <p>Two curves are implemented so the same model works everywhere:</p>
-    <table>
-      <tr><th>Curve</th><th>Chains</th><th>Address form</th></tr>
-      <tr><td>secp256k1</td><td>Base, Arc (EVM)</td><td>0x… keccak address</td></tr>
-      <tr><td>ed25519</td><td>Solana, Sui</td><td>base58 / 0x32-byte</td></tr>
-    </table>
-    <div class="note">The stealth cryptography is the <b>highest-risk component</b> and is currently <b>unaudited</b>. It must pass a dedicated cryptographic audit before mainnet.</div>
+    <div class="note">Independent review is still required before unrestricted high-value production use.</div>
 
     <h2>On-chain contracts</h2>
     <p>Optional smart contracts add on-chain controls. Each is owned by the business; Liquid Flow holds at most a low-privilege timing role.</p>
@@ -95,24 +87,24 @@ one-time key   P = P_spend + s · G          // the deposit address</code></pre>
 
     <h2>Key handling</h2>
     <ul>
-      <li><b>Spend keys</b> (the keys that move funds) are generated for the recipient and shown <b>once</b>. They are never persisted server-side.</li>
+      <li><b>Primary wallet authority</b> belongs to the merchant or campaign creator through the configured wallet provider; LiquidFlow does not expose private keys.</li>
       <li><b>Operator / trigger key</b> is a low-privilege key used only to submit time-gated payroll releases and confirm deposits. It cannot move funds outside a company-defined schedule. On mainnet it moves to an HSM/KMS.</li>
       <li><b>Webhooks</b> are HMAC-SHA256 signed (<code>LF-Signature</code>) so your app can verify authenticity.</li>
     </ul>
 
     <h2>Current status &amp; audit plan</h2>
-    <div class="note">⚠️ <b>Testnet, unaudited.</b> Do not use real funds. Mainnet is gated on the following, tracked on the <a href="roadmap.html">Roadmap</a>:</div>
+    <div class="note"><b>Mainnet MVP.</b> Use controlled values until the following independent checks are complete, tracked on the <a href="roadmap.html">Roadmap</a>:</div>
     <ul>
-      <li><b>Cryptographic audit</b> — independent review of both stealth schemes (secp256k1 and ed25519), the highest-risk pieces.</li>
+      <li><b>Application security review</b> — independent review of wallet provisioning, payment verification, authentication and withdrawals.</li>
       <li><b>Smart-contract audit</b> — every contract, every chain, including the ERC-20 payroll and batch release.</li>
       <li><b>Formal verification</b> — of the "no unauthorized fund movement" invariant.</li>
-      <li><b>Testnet bug bounty</b> — before any mainnet deployment.</li>
+      <li><b>Controlled-value bug bounty</b> — before unrestricted production use.</li>
       <li><b>Legal / regulatory review</b> — money-transmission, AML/KYC, travel rule, and the privacy posture, per jurisdiction.</li>
     </ul>
 
     <h2>Responsible disclosure</h2>
-    <p>Found something? Please report it privately before public disclosure so we can protect testnet users. A formal security contact and bug-bounty program launch alongside the audit phase.</p>
+    <p>Found something? Please report it privately before public disclosure so we can protect users. A formal security contact and bug-bounty program is planned alongside the independent review.</p>
   </div>
-  <div class="foot">Liquid Flow is testnet software and not audited. This page describes design intent and current status; it is not a security guarantee.</div>
+  <div class="foot">Liquid Flow is a controlled-value mainnet MVP without an independent audit certificate. This page describes design intent and current status; it is not a security guarantee.</div>
 </body>
 </html>

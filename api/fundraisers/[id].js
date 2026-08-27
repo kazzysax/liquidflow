@@ -1,11 +1,10 @@
 // /api/fundraisers/:id
 //   GET  — fundraiser details + real computed totals
-//   POST — make a (private, stealth) donation; returns a one-time deposit address
+//   POST — create a donation request to the campaign primary wallet
 const crypto = require('crypto');
 const store  = require('../_lib/store');
-const { deriveDepositAddress } = require('../_lib/crypto');
-const ed = require('../_lib/stealth_ed25519');
-const { checkAndConfirm, currentBlock, ACTIVE_PAYMENT_STATUSES, assetConfig, isValidBaseAmount } = require('../_lib/chain');
+const chainEngine = require('../_lib/chain');
+const { checkAndConfirm, ACTIVE_PAYMENT_STATUSES, assetConfig, isValidBaseAmount } = chainEngine;
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -61,6 +60,7 @@ module.exports = async function handler(req, res) {
       donation_count: t.count,
       pct: f.goal > 0 ? Math.min(100, Math.round((raised / f.goal) * 100)) : 0,
       recent: t.recent,
+      delivery: 'direct_to_primary',
       created_at: f.createdAt,
     });
   }
@@ -69,6 +69,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
   const { amount, label = '' } = req.body || {};
+  if (!assetConfig(f.chain, f.asset)) return res.status(409).json({ error: 'this legacy campaign no longer accepts donations; create a mainnet campaign' });
   if (!amount) return res.status(400).json({ error: 'amount is required' });
   // Reject "0", "-1", decimals, hex, scientific notation — otherwise a fake donation
   // confirms against `bal >= 0` and inflates the fundraiser's raised total / count.
@@ -76,26 +77,43 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'amount must be a positive integer in base units' });
   }
 
+  if (!/^0x[0-9a-fA-F]{40}$/.test(String(f.primaryWallet || ''))) {
+    return res.status(409).json({ error: 'this legacy campaign no longer accepts donations; create a direct-settlement campaign' });
+  }
+
+  // With one direct wallet, two open requests for the same amount could both claim
+  // one transfer. Reject that ambiguous case; fundraiser requests never expire.
+  const existingIds = await store.smembers('fundraiser:' + id + ':payments');
+  for (const existingId of existingIds) {
+    const existing = await store.get('payment:' + existingId);
+    if (existing && ACTIVE_PAYMENT_STATUSES.has(existing.status) && String(existing.amount) === String(amount)) {
+      return res.status(409).json({ error: 'an open donation request already uses this exact amount; choose a slightly different amount' });
+    }
+  }
+
   const paymentId = 'don_' + crypto.randomBytes(8).toString('hex');
-  const { depositAddress, R } =
-    f.chain === 'solana' ? ed.solanaAddress(f.P_spend_ed, f.P_view_ed)
-    : f.chain === 'sui'  ? ed.suiAddress(f.P_spend_ed, f.P_view_ed)
-    : deriveDepositAddress(f.P_spend, f.P_view, paymentId);
-  let startBlock;
-  try { startBlock = (await currentBlock(f.chain)).toString(); }
-  catch { return res.status(503).json({ error: 'could not anchor this donation to the chain; please retry' }); }
+  const depositAddress = f.primaryWallet;
+  let baselineBalance, startBlock;
+  try {
+    baselineBalance = (await chainEngine.confirmedBalance(f.chain, depositAddress, f.asset)).toString();
+    startBlock = (await chainEngine.currentBlock(f.chain)).toString();
+  } catch {
+    return res.status(503).json({ error: 'could not anchor this donation to the chain; please retry' });
+  }
 
   const payment = {
     id: paymentId,
     fundraiserId: id,
-    apiKey: null,             // public donation — no merchant
+    apiKey: f.apiKey || null,
     amount: String(amount),   // wei
     asset: f.asset,
     chain: f.chain,
     label,
     depositAddress,
-    R,
-    mode: 'stealth',
+    privyWalletId: f.privyWalletId || null,
+    walletProvider: 'PRIVY',
+    baselineBalance,
+    mode: 'direct',
     status: 'awaiting_payment',
     createdAt: Date.now(),
     expiresAt: null, // fundraiser donation addresses intentionally do not expire
@@ -105,6 +123,7 @@ module.exports = async function handler(req, res) {
   await store.set(`payment:${paymentId}`, payment);
   await store.sadd('payments:pending', paymentId);
   await store.sadd(`fundraiser:${id}:payments`, paymentId);
+  if (f.apiKey) await store.sadd('merchant:' + f.apiKey + ':payments', paymentId);
 
   return res.status(201).json({
     payment_id: paymentId,
@@ -113,6 +132,7 @@ module.exports = async function handler(req, res) {
     asset: f.asset,
     chain: f.chain,
     status: 'awaiting_payment',
+    delivery_mode: 'direct',
     expires_at: null,
   });
 };

@@ -60,8 +60,8 @@
   .chip[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
   .btn{width:100%;font-family:var(--display);font-size:14px;font-weight:500;padding:13px;border-radius:12px;border:none;cursor:pointer;background:var(--flow);color:#fff;transition:transform .15s,box-shadow .25s}
   .btn:hover{transform:translateY(-1px);box-shadow:0 12px 26px -12px rgba(30,91,255,.6)}
-  .stealth-out{margin-top:16px;display:none}
-  .stealth-out.show{display:block}
+  .payment-out{margin-top:16px;display:none}
+  .payment-out.show{display:block}
   .addr-box{background:var(--cloud);border:1px dashed #C2CCDD;border-radius:10px;padding:12px;font-family:var(--mono);font-size:11.5px;word-break:break-all;color:var(--ink);position:relative}
   .addr-note{display:flex;gap:8px;align-items:flex-start;margin-top:11px;font-size:11.5px;color:#4A3D9E;background:var(--veil-bg);border-radius:9px;padding:9px 11px}
   .copy{position:absolute;top:9px;right:9px;font-size:10px;font-family:var(--display);background:#fff;border:1px solid var(--line);border-radius:7px;padding:4px 8px;cursor:pointer}
@@ -94,7 +94,7 @@
       <div>
         <div class="eyebrow">Potlock · community fund</div>
         <h1>Rebuild the community library</h1>
-        <p class="lede">A flood damaged every shelf on the ground floor. We're raising funds to restock books, replace the children's reading corner, and reopen by autumn. Every donation is private — only the running total is public.</p>
+        <p class="lede">A flood damaged every shelf on the ground floor. We're raising funds to restock books, replace the children's reading corner, and reopen by autumn. Donations settle directly to the creator wallet and the running total is public.</p>
 
         <div class="curve-card">
           <div class="curve-head">
@@ -127,51 +127,46 @@
         </div>
 
         <div class="privacy-explainer">
-          <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>What's private, and what's public</h3>
+          <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Direct settlement, transparent progress</h3>
           <div class="two">
             <div class="pcell hidden">
-              <div class="t">Hidden · who gave</div>
-              <div class="d">Each donation lands at a fresh stealth address. No one can link donations to you or to each other on-chain.</div>
+              <div class="t">Creator-owned wallet</div>
+              <div class="d">Every donation goes directly to the campaign creator's primary Privy wallet.</div>
             </div>
             <div class="pcell shown">
               <div class="t">Public · total raised</div>
-              <div class="d">Only the aggregate total and this curve are shown — never individual donors or amounts tied to a name.</div>
+              <div class="d">The aggregate total and confirmation progress remain visible to supporters.</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- RIGHT: private donate -->
+      <!-- RIGHT: donate -->
       <div class="donate">
-        <h2>Donate privately</h2>
-        <div class="sub">Pick a chain. We generate a one-time stealth address just for you.</div>
-        <div class="chainsel" id="chains">
-          <button class="chip" aria-pressed="true" data-c="Base">Base</button>
-          <button class="chip" aria-pressed="false" data-c="Arc">Arc</button>
-          <button class="chip" aria-pressed="false" data-c="Solana">Solana</button>
-          <button class="chip" aria-pressed="false" data-c="Sui">Sui</button>
-        </div>
+        <h2>Donate</h2>
+        <div class="sub">Create a donation request and pay the campaign creator directly.</div>
+        <div class="addr-note" id="campaignNetwork" style="margin-bottom:12px">Campaign network loads here.</div>
         <div style="margin-bottom:12px">
-          <label id="donAmtLabel" style="font-size:12px;font-weight:500;display:block;margin-bottom:6px;color:var(--ink)">Amount (test ETH)</label>
+          <label id="donAmtLabel" style="font-size:12px;font-weight:500;display:block;margin-bottom:6px;color:var(--ink)">Amount</label>
           <input id="donAmt" value="0.001" inputmode="decimal"
             style="width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:13.5px;font-family:var(--mono);color:var(--ink);background:var(--white)">
         </div>
-        <button class="btn" onclick="genStealth()">Get my private address</button>
+        <button class="btn" onclick="createDonation()">Get payment address</button>
 
-        <div class="stealth-out" id="out">
+        <div class="payment-out" id="out">
           <div class="addr-box" id="addrBox">
             <span id="addr"></span>
             <button class="copy" onclick="copyAddr()">Copy</button>
           </div>
           <div class="addr-note">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 2v20M2 12h20"/></svg>
-            <span>This address is unique to you and used once. Send any amount of the selected asset — the campaign sees the total, not you.</span>
+            <span>Send the requested amount to this campaign wallet. LiquidFlow watches for confirmation.</span>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="foot">Non-custodial · the campaign controls its funds · Liquid Flow can compute the total but can never move donations.</div>
+    <div class="foot">Non-custodial · direct to the creator-owned primary wallet · only the creator can withdraw.</div>
   </div>
 
 <script>
@@ -210,8 +205,8 @@
     document.getElementById('count').textContent=Number(count).toLocaleString();
     setTimeout(()=>{ document.getElementById('fill').style.width=pctVal+'%'; },200);
     document.getElementById('pct').textContent=pctVal+'%';
-    const goalEl=document.getElementById('goalNum'); if(goalEl) goalEl.textContent = goal+' test '+sym;
-    const unitEl=document.querySelector('.raised .unit'); if(unitEl) unitEl.textContent = 'test '+sym+' raised';
+    const goalEl=document.getElementById('goalNum'); if(goalEl) goalEl.textContent = goal+' '+sym;
+    const unitEl=document.querySelector('.raised .unit'); if(unitEl) unitEl.textContent = sym+' raised';
   }
 
   let GOAL=0, count=0, lastRaised=0, FR_DEC=18, FR_SYM='ETH';
@@ -227,7 +222,8 @@
     const s = f.raised>0 ? [0, f.raised*0.25, f.raised*0.55, f.raised*0.8, f.raised] : [0,0];
     drawCurve(s, GOAL);
     setStats(f.raised, GOAL, count, FR_SYM);
-    const al=document.getElementById('donAmtLabel'); if(al) al.textContent='Amount (test '+FR_SYM+')';
+    const al=document.getElementById('donAmtLabel'); if(al) al.textContent='Amount ('+FR_SYM+')';
+    const network=document.getElementById('campaignNetwork'); if(network) network.textContent='Direct settlement · '+f.chain+' · '+FR_SYM;
     return f;
   }
 
@@ -238,36 +234,15 @@
   }
   init();
 
-  // ---- chain selector (display only; live donations settle on the campaign chain) ----
-  let chain='Base';
-  document.getElementById('chains').addEventListener('click',e=>{
-    const b=e.target.closest('.chip'); if(!b) return;
-    [...document.querySelectorAll('.chip')].forEach(c=>c.setAttribute('aria-pressed','false'));
-    b.setAttribute('aria-pressed','true'); chain=b.dataset.c;
-  });
-
-  function rand(nbytes){ const a=new Uint8Array(nbytes); crypto.getRandomValues(a); return [...a].map(b=>b.toString(16).padStart(2,'0')).join(''); }
-  function fakeAddr(){
-    if(chain==='Solana') return btoa(rand(24)).replace(/[^A-Za-z0-9]/g,'').slice(0,44);
-    if(chain==='Sui') return '0x'+rand(32);
-    return '0x'+rand(20); // Base / Arc (EVM)
-  }
-
   let _poll=null;
-  async function genStealth(){
+  async function createDonation(){
     const btn = (typeof event!=='undefined' && event.target) ? event.target : document.querySelector('.donate .btn');
     const note = document.querySelector('#out .addr-note span');
 
-    // No real campaign loaded (demo page): show a representative address.
-    if(!FR_ID){
-      document.getElementById('addr').textContent = fakeAddr();
-      document.getElementById('out').classList.add('show');
-      if(note) note.textContent = 'This is a demo campaign. Create a real one at "Start a fundraiser" to mint live testnet addresses.';
-      return;
-    }
+    if(!FR_ID){ alert('Open a live campaign first.'); return; }
 
-    const eth = parseFloat((document.getElementById('donAmt')||{}).value||'0.001')||0.001;
-    const wei = BigInt(Math.round(eth*Math.pow(10,FR_DEC))).toString();
+    const humanAmount = parseFloat((document.getElementById('donAmt')||{}).value||'0.001')||0.001;
+    const wei = BigInt(Math.round(humanAmount*Math.pow(10,FR_DEC))).toString();
     const old = btn.textContent; btn.textContent='Minting…'; btn.disabled=true;
     try{
       const r = await fetch('/api/fundraisers/'+FR_ID,{
@@ -278,7 +253,7 @@
       const p = await r.json();
       document.getElementById('addr').textContent = p.deposit_address;
       document.getElementById('out').classList.add('show');
-      if(note) note.textContent = 'Live one-time address (Base testnet). Send '+eth+' test ETH here — the campaign sees the total, not you. Watching for your deposit…';
+      if(note) note.textContent = 'Send '+humanAmount+' '+FR_SYM+' to this primary campaign wallet. Watching for confirmation…';
 
       // Poll the campaign total; when it rises, the donation has confirmed on-chain.
       const before = lastRaised;
@@ -288,14 +263,12 @@
           const f = await loadFundraiser();
           if(f.raised > before){
             clearInterval(_poll);
-            if(note) note.innerHTML = '✅ <strong>Donation confirmed on-chain.</strong> Added to the campaign total — your identity stays unlinked.';
+            if(note) note.innerHTML = '✅ <strong>Donation confirmed on-chain.</strong> Added to the campaign total and settled to the creator wallet.';
           }
         }catch(_){}
       }, 6000);
     }catch(err){
-      document.getElementById('addr').textContent = fakeAddr();
-      document.getElementById('out').classList.add('show');
-      if(note) note.textContent = 'Could not reach the live API ('+err.message+').';
+      alert('Could not create donation: '+err.message);
     }finally{
       btn.textContent=old; btn.disabled=false;
     }

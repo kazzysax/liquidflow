@@ -1,10 +1,9 @@
 // /api/fundraisers
-//   POST — create a fundraiser (Potlock campaign) with its own stealth keypair
+//   POST — create a fundraiser with a creator-owned primary Privy wallet
 //   GET  — list all fundraisers with real (computed) totals
 const crypto = require('crypto');
 const store  = require('../_lib/store');
-const { generateKeypair } = require('../_lib/crypto');
-const ed = require('../_lib/stealth_ed25519');
+const privy = require('../_lib/privy');
 const { assetConfig, assetsForChain, assetOk, chainSupported, chainDisabledReason } = require('../_lib/chain');
 
 function cors(res) {
@@ -69,8 +68,11 @@ module.exports = async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
-  const { title, description = '', goal, asset = 'VERSE', chain = 'eip155:1' } = req.body || {};
+  const { title, description = '', goal, asset = 'VERSE', chain = 'eip155:1', email } = req.body || {};
   if (!title || !goal) return res.status(400).json({ error: 'title and goal are required' });
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return res.status(400).json({ error: 'a valid creator email is required' });
+  if (String(title).trim().length > 100 || String(description).length > 1000) return res.status(400).json({ error: 'campaign text is too long' });
   const goalNum = Number(goal);
   if (!Number.isFinite(goalNum) || goalNum <= 0) {
     return res.status(400).json({ error: 'goal must be a positive number' });
@@ -83,35 +85,69 @@ module.exports = async function handler(req, res) {
   }
 
   const id = 'fr_' + crypto.randomBytes(6).toString('hex');
-  const kp  = generateKeypair();     // secp256k1 — EVM campaigns
-  const ekp = ed.generateKeypair();  // ed25519 — Solana / Sui campaigns
+  const apiKey = 'lf_live_' + crypto.randomBytes(16).toString('hex');
+  let wallet;
+  try {
+    wallet = await privy.provisionMerchant(normalizedEmail, id);
+  } catch (error) {
+    console.error('Potlock wallet provisioning failed:', error && error.message);
+    return res.status(502).json({ error: 'campaign wallet provisioning failed; no campaign was created' });
+  }
+  if (!wallet) return res.status(503).json({ error: 'campaign wallet service is unavailable' });
 
   const fundraiser = {
     id,
     slug: slugify(title) + '-' + id.slice(3, 7),
-    title,
-    description,
+    title: String(title).trim(),
+    description: String(description).trim(),
     goal: goalNum,
     asset: assetConfig(chain, useAsset).symbol,
     chain,
-    mode: 'stealth',
-    P_spend: kp.P_spend, P_view: kp.P_view, k_view: kp.k_view,
-    P_spend_ed: ekp.P_spend, P_view_ed: ekp.P_view, k_view_ed: ekp.k_view,
+    mode: 'direct',
+    ownerEmail: normalizedEmail,
+    apiKey,
+    privyUserId: wallet.userId,
+    privyWalletId: wallet.walletId,
+    primaryWallet: wallet.walletAddress,
     createdAt: Date.now(),
   };
 
+  const merchant = {
+    id,
+    name: String(title).trim(),
+    email: normalizedEmail,
+    apiKey,
+    webhookUrl: null,
+    webhookSecret: null,
+    mode: 'direct',
+    chains: [chain],
+    settle: assetConfig(chain, useAsset).symbol.toUpperCase(),
+    unify: false,
+    dex: null,
+    payout: null,
+    settlementProvider: 'PRIVY_USER_OWNED',
+    privyUserId: wallet.userId,
+    privyWalletId: wallet.walletId,
+    privyWalletAddress: wallet.walletAddress,
+    status: 'active',
+    activatedAt: Date.now(),
+    createdAt: Date.now(),
+  };
   await store.set(`fundraiser:${id}`, fundraiser);
   await store.sadd('fundraisers:all', id);
+  await store.set('merchant:' + apiKey, merchant);
 
-  const isEd = (chain === 'solana' || chain === 'sui');
   return res.status(201).json({
     id,
     slug: fundraiser.slug,
-    title,
+    title: fundraiser.title,
     goal: fundraiser.goal,
+    asset: fundraiser.asset,
     chain,
-    url: `/potlock-private.html?id=${id}`,
-    spend_key: isEd ? ekp.k_spend : kp.k_spend,
-    spend_key_note: 'Save this — it is the only key that can sweep donations to your wallet. Never shown again.',
+    url: '/potlock-private.html?id=' + id,
+    api_key: apiKey,
+    primary_wallet: wallet.walletAddress,
+    dashboard_url: '/dashboard.html',
+    custody: 'creator_owned_privy',
   });
 };
