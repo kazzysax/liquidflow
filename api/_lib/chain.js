@@ -51,7 +51,7 @@ const CONFIRMATIONS = {
   // Operational mainnet depths: fast enough for checkout while still requiring
   // several buried blocks. A transfer is detected at the chain tip first and is
   // only marked confirmed once it reaches the depth below.
-  'eip155:84532': 3, 'eip155:8453': 10, 'eip155:137': 32, 'eip155:5042002': 3, 'eip155:11155111': 3, 'eip155:1': 3,
+  'eip155:84532': 3, 'eip155:8453': 3, 'eip155:137': 8, 'eip155:5042002': 3, 'eip155:11155111': 3, 'eip155:1': 2,
   'solana': 1, 'sui': 1,
 };
 const confDepth = (c) => (CONFIRMATIONS[c] != null ? CONFIRMATIONS[c] : 3);
@@ -151,38 +151,49 @@ async function currentBlock(chain) {
   return BigInt(await rpc(chain, 'eth_blockNumber', []));
 }
 
-async function tokenTransfersTo(payment) {
+async function scanTransfersTo(payment) {
   const cfg = assetConfig(payment.chain, payment.asset);
   if (!cfg || payment.startBlock == null) throw new Error('payment is missing token or start block');
-  const head = await currentBlock(payment.chain);
-  const safe = head > BigInt(confDepth(payment.chain)) ? head - BigInt(confDepth(payment.chain)) : 0n;
-  const from = BigInt(payment.startBlock);
-  if (safe < from) return [];
   const recipient = '0x' + String(payment.depositAddress).slice(2).toLowerCase().padStart(64, '0');
-  const logs = await rpc(payment.chain, 'eth_getLogs', [{ address: cfg.contract,
-    fromBlock: '0x' + from.toString(16), toBlock: '0x' + safe.toString(16),
-    topics: [TRANSFER_TOPIC, null, recipient] }]);
+  const fromBlock = '0x' + BigInt(payment.startBlock).toString(16);
+  // Read the tip and matching logs in parallel. One scan detects a transaction
+  // immediately and also tells us when it reaches the required finality depth.
+  const [headHex, logs] = await Promise.all([
+    rpc(payment.chain, 'eth_blockNumber', []),
+    rpc(payment.chain, 'eth_getLogs', [{ address: cfg.contract, fromBlock, toBlock: 'latest',
+      topics: [TRANSFER_TOPIC, null, recipient] }]),
+  ]);
   if (!Array.isArray(logs) || logs.length > 100) throw new Error('unexpected transfer log count');
+  const head = BigInt(headHex);
+  const required = confDepth(payment.chain);
   const blockNumbers = [...new Set(logs.map(log => log.blockNumber))];
   const blocks = new Map(await Promise.all(blockNumbers.map(async number => {
     const block = await rpc(payment.chain, 'eth_getBlockByNumber', [number, false]);
     if (!block || block.timestamp == null) throw new Error('missing transfer block timestamp');
     return [number, Number(BigInt(block.timestamp) * 1000n)];
   })));
-  return logs.map(log => ({ id: `${log.transactionHash}:${log.logIndex}`, txHash: log.transactionHash,
-    logIndex: log.logIndex, blockNumber: BigInt(log.blockNumber).toString(),
-    blockTimestamp: blocks.get(log.blockNumber), from: '0x' + String(log.topics[1]).slice(-40),
-    amount: BigInt(log.data).toString() }));
+  const transfers = logs.map(log => {
+    const blockNumber = BigInt(log.blockNumber);
+    const confirmations = head >= blockNumber ? Number(head - blockNumber + 1n) : 0;
+    return { id: `${log.transactionHash}:${log.logIndex}`, txHash: log.transactionHash,
+      logIndex: log.logIndex, blockNumber: blockNumber.toString(),
+      blockTimestamp: blocks.get(log.blockNumber), from: '0x' + String(log.topics[1]).slice(-40),
+      amount: BigInt(log.data).toString(), confirmations };
+  });
+  return {
+    required,
+    transfers,
+    finalized: transfers.filter(transfer => transfer.confirmations >= required),
+    pending: transfers.filter(transfer => transfer.confirmations < required),
+  };
+}
+
+async function tokenTransfersTo(payment) {
+  return (await scanTransfersTo(payment)).finalized;
 }
 
 async function unfinalizedTransferSeen(payment) {
-  const cfg = assetConfig(payment.chain, payment.asset);
-  if (!cfg || payment.startBlock == null) return false;
-  const recipient = '0x' + String(payment.depositAddress).slice(2).toLowerCase().padStart(64, '0');
-  const logs = await rpc(payment.chain, 'eth_getLogs', [{ address: cfg.contract,
-    fromBlock: '0x' + BigInt(payment.startBlock).toString(16), toBlock: 'latest',
-    topics: [TRANSFER_TOPIC, null, recipient] }]);
-  return Array.isArray(logs) && logs.length > 0;
+  return (await scanTransfersTo(payment)).pending.length > 0;
 }
 
 function classifyTransfers(payment, transfers, now = Date.now()) {
@@ -197,7 +208,7 @@ function classifyTransfers(payment, transfers, now = Date.now()) {
   if (timelyReceived >= need) return { status: 'refund_pending', received, sender: senders[0], refund: received - need };
   if (received > 0n && (payment.expiresAt == null || now < payment.expiresAt)) return { status: 'awaiting_topup', received, sender: senders[0], refund: null };
   if (received === 0n && (payment.expiresAt == null || now < payment.expiresAt)) return { status: 'awaiting_payment', received, sender: null, refund: null };
-  if (payment.expiresAt != null && now < payment.expiresAt + FINALITY_GRACE_MS) return { status: 'checking_finality', received, sender: senders[0] || null, refund: null };
+  if (received > 0n && payment.expiresAt != null && now < payment.expiresAt + FINALITY_GRACE_MS) return { status: 'checking_finality', received, sender: senders[0] || null, refund: null };
   if (received > 0n) return { status: 'refund_pending', received, sender: senders[0], refund: received };
   return { status: payment.expiresAt == null ? 'awaiting_payment' : 'expired', received, sender: null, refund: null };
 }
@@ -274,10 +285,20 @@ async function checkAndConfirm(payment) {
   if (!isValidBaseAmount(payment.amount)) return payment;
 
   try {
-    const transfers = await tokenTransfersTo(payment);
+    const scan = await scanTransfersTo(payment);
+    const transfers = scan.finalized;
     const result = classifyTransfers(payment, transfers);
-    if (result.status === 'awaiting_payment' && await unfinalizedTransferSeen(payment)) {
+    if (scan.pending.length) {
       result.status = 'checking_finality';
+      const newest = [...scan.pending].sort((a, b) => b.confirmations - a.confirmations)[0];
+      payment.confirmationProgress = {
+        seen: newest.confirmations,
+        required: scan.required,
+        transaction_hash: newest.txHash,
+      };
+      payment.detectedAt = payment.detectedAt || Date.now();
+    } else {
+      payment.confirmationProgress = null;
     }
     payment.transfers = transfers;
     payment.receivedAmount = result.received.toString();
@@ -313,4 +334,4 @@ async function checkAndConfirm(payment) {
   return payment;
 }
 
-module.exports = { CHECKOUT_TTL_MS, RPC, CONFIRMATIONS, ASSETS, DECIMALS, SYMBOL, ACTIVE_PAYMENT_STATUSES, RECHECKABLE_PAYMENT_STATUSES, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetConfig, assetsForChain, assetForChain, assetOk, rpc, rpcUrl, currentBlock, ethBalance, tokenBalance, nativeBalance, confirmedBalance, tokenTransfersTo, classifyTransfers, checkAndConfirm };
+module.exports = { CHECKOUT_TTL_MS, RPC, CONFIRMATIONS, ASSETS, DECIMALS, SYMBOL, ACTIVE_PAYMENT_STATUSES, RECHECKABLE_PAYMENT_STATUSES, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetConfig, assetsForChain, assetForChain, assetOk, rpc, rpcUrl, currentBlock, ethBalance, tokenBalance, nativeBalance, confirmedBalance, scanTransfersTo, tokenTransfersTo, classifyTransfers, checkAndConfirm };

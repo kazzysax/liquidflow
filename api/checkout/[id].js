@@ -47,6 +47,8 @@ module.exports = async function handler(req, res) {
     status:          payment.status,
     created_at:      payment.createdAt,
     confirmed_at:    payment.confirmedAt || null,
+    detected_at:     payment.detectedAt || null,
+    confirmation_progress: payment.confirmationProgress || null,
     expires_at:      payment.expiresAt,
     remaining_seconds: Math.ceil(remainingMs / 1000),
   });

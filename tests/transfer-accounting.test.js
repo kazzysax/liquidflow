@@ -23,6 +23,12 @@ test('fresh unfunded invoice remains awaiting payment', () => {
   assert.equal(result.received, 0n);
 });
 
+test('unfunded invoice expires immediately instead of waiting through finality grace', () => {
+  const result = classifyTransfers(payment, [], 10_001);
+  assert.equal(result.status, 'expired');
+  assert.equal(result.received, 0n);
+});
+
 test('overpayment records only the excess for refund', () => {
   const result = classifyTransfers(payment, [tx('a', '130')], 5_000);
   assert.equal(result.status, 'refund_pending');

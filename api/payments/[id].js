@@ -63,6 +63,8 @@ module.exports = async function handler(req, res) {
     asset:           payment.asset,
     chain:           payment.chain,
     confirmed_at:    payment.confirmedAt || null,
+    detected_at:     payment.detectedAt || null,
+    confirmation_progress: payment.confirmationProgress || null,
     received_amount: payment.receivedAmount || '0',
     payer_address:   payment.payerAddress || null,
     transaction_hashes: payment.transactionHashes || [],
