@@ -1,70 +1,77 @@
-const { assetsForChain, confirmedBalance } = require('./chain');
+const { assetsForChain, confirmedBalance, nativeBalance } = require('./chain');
+
+const GAS = Object.freeze({
+  'eip155:1': { symbol: 'ETH', minimum: 500000000000000n },
+  'eip155:137': { symbol: 'POL', minimum: 50000000000000000n },
+  'eip155:8453': { symbol: 'ETH', minimum: 50000000000000n },
+});
 
 async function buildPortfolio(merchant) {
   if (!merchant.privyUserId || !merchant.privyWalletAddress) {
-    return { provider: 'LEGACY', primary_wallet: null, wallets: [], holdings: [], balances: [], errors: [] };
+    return { provider: 'LEGACY', primary_wallet: null, wallets: [], holdings: [], balances: [], gas_balances: [], errors: [] };
   }
 
-  const wallets = [{
+  const wallet = {
     address: merchant.privyWalletAddress,
     wallet_id: merchant.privyWalletId || null,
     kind: 'primary',
     slot: 0,
-  }, ...(merchant.privyPaymentWallets || []).map(wallet => ({
-    address: wallet.walletAddress,
-    wallet_id: wallet.walletId,
-    kind: 'payment',
-    slot: wallet.slot,
-  }))];
+  };
   const targets = [];
-  for (const wallet of wallets) {
-    for (const chain of merchant.chains || []) {
-      for (const cfg of assetsForChain(chain)) {
-        targets.push({
-          ...wallet,
-          chain,
-          asset: cfg.symbol,
-          decimals: cfg.decimals,
-          contract: cfg.contract,
-        });
-      }
+  for (const chain of merchant.chains || []) {
+    for (const cfg of assetsForChain(chain)) {
+      targets.push({ ...wallet, chain, asset: cfg.symbol, decimals: cfg.decimals, contract: cfg.contract });
     }
   }
 
-  const results = await Promise.allSettled(targets.map(async target => ({
-    ...target,
-    amount_base: (await confirmedBalance(target.chain, target.address, target.asset)).toString(),
-  })));
+  const [tokenResults, gasResults] = await Promise.all([
+    Promise.allSettled(targets.map(async target => ({
+      ...target,
+      amount_base: (await confirmedBalance(target.chain, target.address, target.asset)).toString(),
+    }))),
+    Promise.allSettled((merchant.chains || []).filter(chain => GAS[chain]).map(async chain => {
+      const amount = await nativeBalance(chain, wallet.address);
+      return {
+        chain,
+        symbol: GAS[chain].symbol,
+        decimals: 18,
+        amount_base: amount.toString(),
+        minimum_base: GAS[chain].minimum.toString(),
+        ready: amount >= GAS[chain].minimum,
+      };
+    })),
+  ]);
+
   const holdings = [];
+  const gasBalances = [];
   const errors = [];
-  for (const result of results) {
+  for (const result of tokenResults) {
     if (result.status === 'fulfilled') holdings.push(result.value);
-    else errors.push('A network balance could not be refreshed.');
+    else errors.push('A primary-wallet token balance could not be refreshed.');
+  }
+  for (const result of gasResults) {
+    if (result.status === 'fulfilled') gasBalances.push(result.value);
+    else errors.push('A primary-wallet gas balance could not be refreshed.');
   }
 
-  const totals = new Map();
-  for (const item of holdings) {
-    const key = `${item.chain}:${item.asset}`;
-    const current = totals.get(key) || { chain: item.chain, asset: item.asset, decimals: item.decimals, contract: item.contract, amount: 0n };
-    current.amount += BigInt(item.amount_base || '0');
-    totals.set(key, current);
-  }
-  const balances = [...totals.values()].map(item => ({
+  const balances = holdings.map(item => ({
     chain: item.chain,
     asset: item.asset,
     decimals: item.decimals,
     contract: item.contract,
-    amount_base: item.amount.toString(),
+    amount_base: item.amount_base,
   }));
 
   return {
     provider: 'PRIVY',
     custody: 'merchant_owned',
-    delivery: 'rotating_pool_then_primary',
+    delivery: 'direct_to_primary',
     primary_wallet: merchant.privyWalletAddress,
-    wallets,
+    wallets: [wallet],
     holdings,
     balances,
+    gas_balances: gasBalances,
+    consolidation_required: false,
     errors: [...new Set(errors)],
   };
 }

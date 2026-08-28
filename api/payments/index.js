@@ -5,7 +5,6 @@ const crypto = require('crypto');
 const store  = require('../_lib/store');
 const { trackVerseEvent } = require('../_lib/verse-analytics');
 const chainEngine = require('../_lib/chain');
-const privy = require('../_lib/privy');
 const { CHECKOUT_TTL_MS, ACTIVE_PAYMENT_STATUSES, checkAndConfirm, assetConfig, assetsForChain, assetOk, isValidBaseAmount, chainSupported, chainDisabledReason } = chainEngine;
 
 function cors(res) {
@@ -33,14 +32,14 @@ function publicView(p) {
     token_contract:  cfg ? cfg.contract : null,
     status:          p.status,
     label:           p.label || null,
-    delivery_mode:   'wallet_pool',
+    delivery_mode:   p.mode || 'direct_primary',
     created_at:      p.createdAt,
     confirmed_at:    p.confirmedAt || null,
     received_amount: p.receivedAmount || '0',
     payer_address:   p.payerAddress || null,
     transaction_hashes: p.transactionHashes || [],
     refund:          p.refund || null,
-    consolidation:  p.status === 'confirmed' ? { status: 'merchant_approval_required' } : null,
+    consolidation:  null,
     expires_at:      p.expiresAt,
     remaining_seconds: Math.ceil(remainingMs / 1000),
   };
@@ -119,71 +118,22 @@ module.exports = async function handler(req, res) {
   const paymentId = 'pay_' + crypto.randomBytes(8).toString('hex');
   const expiresAt = Date.now() + CHECKOUT_TTL_MS;
 
-  // Rotate checkouts across the merchant's ten user-owned Privy payment wallets.
-  // A wallet is not reused for the same token/network while an invoice is active.
-  let pool = Array.isArray(merchant.privyPaymentWallets) ? merchant.privyPaymentWallets : [];
-  if (pool.length !== 10 && merchant.privyUserId) {
-    try {
-      pool = await privy.provisionPaymentPool(merchant.privyUserId, merchant.id);
-      merchant.privyPaymentWallets = pool;
-      merchant.paymentWalletCursor = 0;
-      merchant.mode = 'wallet_pool';
-      await store.set(`merchant:${key}`, merchant);
-    } catch (error) {
-      console.error('Legacy merchant pool migration failed:', error && error.message);
-      return res.status(502).json({ error: 'payment wallet setup is still completing; please retry' });
-    }
-  }
-  if (!Array.isArray(pool) || pool.length !== 10) {
-    return res.status(409).json({ error: 'this merchant has no provisionable 10-wallet pool' });
-  }
-  const existingIds = await store.smembers('merchant:' + key + ':payments');
-  const activePayments = [];
-  for (const existingId of existingIds) {
-    const existing = await store.get('payment:' + existingId);
-    if (existing && ACTIVE_PAYMENT_STATUSES.has(existing.status) && Date.now() < existing.expiresAt) {
-      activePayments.push(existing);
-    }
-  }
-  const start = Number(merchant.paymentWalletCursor || 0) % pool.length;
-  let selectedWallet = null;
-  let selectedIndex = -1;
-  let reservationKey = null;
-  for (let offset = 0; offset < pool.length; offset += 1) {
-    const index = (start + offset) % pool.length;
-    const candidate = pool[index];
-    const occupied = activePayments.some(payment =>
-      String(payment.depositAddress).toLowerCase() === String(candidate.walletAddress).toLowerCase() &&
-      payment.chain === chain && payment.asset === assetConfig(chain, asset).symbol
-    );
-    if (occupied) continue;
-    const candidateKey = `reserve:payment-wallet:${chain}:${assetConfig(chain, asset).symbol}:${String(candidate.walletAddress).toLowerCase()}`;
-    const reserved = await store.setIfAbsent(candidateKey, paymentId, Math.ceil(CHECKOUT_TTL_MS / 1000));
-    if (reserved) { selectedWallet = candidate; selectedIndex = index; reservationKey = candidateKey; break; }
-  }
-  if (!selectedWallet) {
-    return res.status(409).json({ error: 'all 10 payment wallets are busy for this asset and network; retry after an invoice settles or expires' });
-  }
-  const depositAddress = selectedWallet.walletAddress;
-  const privyWalletId = selectedWallet.walletId;
+  // Direct settlement: every checkout pays the merchant-owned primary Privy wallet.
+  const depositAddress = merchant.privyWalletAddress;
+  const privyWalletId = merchant.privyWalletId;
   if (!/^0x[0-9a-fA-F]{40}$/.test(String(depositAddress || ''))) {
-    return res.status(500).json({ error: 'payment wallet pool contains an invalid address' });
+    return res.status(409).json({ error: 'this merchant primary wallet is not available' });
   }
-  merchant.paymentWalletCursor = (selectedIndex + 1) % pool.length;
-  await store.set(`merchant:${key}`, merchant);
-
   let baselineBalance;
   try {
     baselineBalance = (await chainEngine.confirmedBalance(chain, depositAddress, asset)).toString();
   } catch (e) {
-    if (reservationKey) await store.del(reservationKey);
     return res.status(503).json({ error: 'could not read chain state to baseline this payment; please retry' });
   }
   let startBlock;
   try {
     startBlock = (await chainEngine.currentBlock(chain)).toString();
   } catch (e) {
-    if (reservationKey) await store.del(reservationKey);
     return res.status(503).json({ error: 'could not anchor this invoice to the chain; please retry' });
   }
 
@@ -197,11 +147,10 @@ module.exports = async function handler(req, res) {
     label: label || '',
     depositAddress,
     privyWalletId,
-    walletProvider: 'PRIVY_POOL',
-    paymentWalletSlot: selectedWallet.slot,
-    consolidation: { status: 'awaiting_payment', primaryWallet: merchant.privyWalletAddress },
+    walletProvider: 'PRIVY_PRIMARY',
+    consolidation: null,
     baselineBalance,
-    mode: 'wallet_pool',
+    mode: 'direct_primary',
     status: 'awaiting_payment',
     createdAt: Date.now(),
     expiresAt,
@@ -215,7 +164,7 @@ module.exports = async function handler(req, res) {
   await trackVerseEvent('Payment Created', {
     asset: payment.asset,
     chain: payment.chain,
-    delivery_mode: 'wallet_pool',
+    delivery_mode: 'direct_primary',
   });
 
   return res.status(201).json(publicView(payment));

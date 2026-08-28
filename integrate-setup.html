@@ -175,7 +175,7 @@
           <label>Payment destination</label>
           <div class="privacy-note" style="display:flex">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E5BFF" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            <span>LiquidFlow creates 10 rotating merchant-owned payment wallets plus one primary wallet. Confirmed balances can be consolidated to the primary wallet from the dashboard.</span>
+            <span>LiquidFlow creates one merchant-owned primary wallet. Every customer payment settles directly to it.</span>
           </div>
         </div>
       </div>
@@ -222,7 +222,7 @@
 
 <script>
   let step=0; const TOTAL=5;
-  const cfg={ name:'', email:'', chains:['eip155:1','eip155:137','eip155:8453'], settle:'USDC', unify:true, dex:'LIQUIDFLOW_APPROVED_ROUTES', mode:'wallet_pool', webhook:'' };
+  const cfg={ name:'', email:'', chains:['eip155:1','eip155:137','eip155:8453'], settle:'USDC', unify:true, dex:'LIQUIDFLOW_APPROVED_ROUTES', mode:'direct_primary', webhook:'' };
 
   // multi-select grids
   function bindGrid(id, key){
@@ -274,7 +274,7 @@
       ['Chains', cfg.chains.join(', ')||'—'],
       ['Settlement currency', cfg.settle],
       ['Liquidity unification', cfg.unify?('On · via '+cfg.dex):'Off (funds stay as sent)'],
-      ['Payment delivery', '10-wallet rotation to primary wallet'],
+      ['Payment delivery', 'Direct to primary merchant wallet'],
       ['Wallet custody', 'Merchant-owned through Privy · no sweep address required'],
       ['Webhook', cfg.webhook||'—'],
     ];

@@ -88,7 +88,7 @@ module.exports = async function handler(req, res) {
   const apiKey = 'lf_live_' + crypto.randomBytes(16).toString('hex');
   let wallet;
   try {
-    wallet = await privy.provisionMerchant(normalizedEmail, id);
+    wallet = await privy.provisionMerchant(normalizedEmail, id, { paymentPool: true });
   } catch (error) {
     console.error('Potlock wallet provisioning failed:', error && error.message);
     return res.status(502).json({ error: 'campaign wallet provisioning failed; no campaign was created' });

@@ -70,7 +70,7 @@
     <pre><code>curl -X POST https://liquidflow-io.vercel.app/api/merchants \
   -H "Content-Type: application/json" -d '{
   "name": "Acme",
-  "mode": "wallet_pool",
+  "mode": "direct_primary",
   "chains": ["eip155:1", "eip155:137", "eip155:8453"],
   "settle": "USDC",
   "payout": "",
@@ -82,7 +82,7 @@
 
     <h2>Payments</h2>
     <h3><span class="m post">POST</span> /api/payments</h3>
-    <p>Authenticated. Creates a payment using the next available merchant payment wallet as the deposit address.</p>
+    <p>Authenticated. Creates a payment directly to the merchant-owned primary wallet.</p>
     <pre><code>curl -X POST https://liquidflow-io.vercel.app/api/payments \
   -H "Authorization: Bearer lf_live_…" \
   -H "Content-Type: application/json" -d '{

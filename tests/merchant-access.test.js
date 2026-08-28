@@ -54,8 +54,9 @@ test('new merchant gateways activate immediately without a subscription invoice'
   assert.equal(res.body.settlement.provider, 'PRIVY');
   assert.equal(res.body.settlement.primary_wallet, '0x2222222222222222222222222222222222222222');
   assert.equal(res.body.settlement.sweep_wallet, null);
-  assert.equal(res.body.settlement.payment_wallet_count, 10);
-  assert.equal(res.body.mode, 'wallet_pool');
+  assert.equal(res.body.settlement.payment_wallet_count, 0);
+  assert.equal(res.body.settlement.direct_settlement, true);
+  assert.equal(res.body.mode, 'direct_primary');
   assert.equal(res.body.settlement.control, 'merchant_only');
 });
 

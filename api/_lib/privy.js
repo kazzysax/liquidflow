@@ -34,7 +34,7 @@ async function provisionPaymentPool(userId, merchantId) {
     return { walletId: wallet.id, walletAddress: wallet.address, slot: index + 1 };
   }));
 }
-async function provisionMerchant(email, merchantId) {
+async function provisionMerchant(email, merchantId, options = {}) {
   const privy = await getClient();
   if (!privy) return null;
   const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -57,7 +57,7 @@ async function provisionMerchant(email, merchantId) {
     idempotency_key: merchantId,
   });
 
-  const paymentWallets = await provisionPaymentPool(user.id, merchantId);
+  const paymentWallets = options.paymentPool === true ? await provisionPaymentPool(user.id, merchantId) : [];
 
   return {
     userId: user.id,
@@ -86,16 +86,13 @@ function settlementView(merchant) {
     status: walletAddress ? 'active' : 'not_provisioned',
     primary_wallet: walletAddress || null,
     deposit_wallet: null,
-    payment_wallets: (merchant.privyPaymentWallets || []).map(wallet => ({
-      slot: wallet.slot,
-      address: wallet.walletAddress,
-    })),
-    payment_wallet_count: (merchant.privyPaymentWallets || []).length,
+    payment_wallets: [],
+    payment_wallet_count: 0,
     sweep_wallet: null,
-    direct_settlement: false,
-    consolidation: 'merchant_approved_to_primary',
+    direct_settlement: true,
+    consolidation: null,
     control: 'merchant_only',
-    restriction: 'Ten merchant-owned payment wallets rotate across checkouts. The authenticated merchant approves consolidation to the primary wallet.',
+    restriction: 'Payments settle directly to the merchant-owned primary wallet. No sweep or consolidation is required.',
   };
 }
 
