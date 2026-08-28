@@ -133,8 +133,8 @@ function WalletPanel() {
   return <div className="wallet-console">
     <div className="wallet-console-head">
       <div>
-        <h3>Primary wallet & withdrawal</h3>
-        <p>Every customer payment settles directly here. Only the merchant can withdraw.</p>
+        <h3>Available wallet balances</h3>
+        <p>Every customer payment settles directly in this primary wallet.</p>
       </div>
       <button className="btn btn-ghost btn-sm" onClick={refresh} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh balances'}</button>
     </div>
