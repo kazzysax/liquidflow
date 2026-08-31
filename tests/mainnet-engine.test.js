@@ -28,9 +28,9 @@ test('canonical USDC contracts match Circle mainnet addresses', () => {
 });
 
 test('checkout confirmation depths are bounded for responsive mainnet checkout', () => {
-  assert.equal(chain.CONFIRMATIONS['eip155:1'], 2);
-  assert.equal(chain.CONFIRMATIONS['eip155:137'], 8);
-  assert.equal(chain.CONFIRMATIONS['eip155:8453'], 3);
+  assert.equal(chain.CONFIRMATIONS['eip155:1'], 1);
+  assert.equal(chain.CONFIRMATIONS['eip155:137'], 2);
+  assert.equal(chain.CONFIRMATIONS['eip155:8453'], 2);
   assert.equal(chain.RECHECKABLE_PAYMENT_STATUSES.has('expired'), true);
 });
 

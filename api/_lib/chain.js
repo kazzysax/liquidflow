@@ -22,6 +22,11 @@ const RPC_ENV = {
   'solana':          process.env.SOLANA_RPC,
   'sui':             process.env.SUI_RPC,
 };
+const RPC_BACKUP_ENV = {
+  'eip155:8453':     process.env.BASE_MAINNET_RPC_BACKUP,
+  'eip155:137':      process.env.POLYGON_MAINNET_RPC_BACKUP,
+  'eip155:1':        process.env.ETHEREUM_MAINNET_RPC_BACKUP,
+};
 const RPC_FALLBACK = {
   'eip155:84532':    'https://sepolia.base.org',
   'eip155:5042002':  'https://rpc.testnet.arc.network',
@@ -31,14 +36,17 @@ const RPC_FALLBACK = {
 };
 // Chains that move real money — no public fallback allowed.
 const MAINNET_CHAINS = new Set(['eip155:1', 'eip155:137', 'eip155:8453']);
-function rpcUrl(chain) {
-  const env = RPC_ENV[chain];
-  if (env) return env;
-  if (MAINNET_CHAINS.has(chain)) {
-    throw new Error(`mainnet chain ${chain} requires an explicit RPC env var (no public fallback for real money)`);
-  }
-  return RPC_FALLBACK[chain] || null;
+function rpcUrls(chain) {
+  const configured = [RPC_ENV[chain], RPC_BACKUP_ENV[chain]]
+    .flatMap(value => String(value || '').split(','))
+    .map(value => value.trim())
+    .filter(Boolean);
+  const urls = [...new Set(configured)];
+  if (urls.length) return urls;
+  if (MAINNET_CHAINS.has(chain)) throw new Error(`mainnet chain ${chain} requires at least one explicit RPC URL`);
+  return RPC_FALLBACK[chain] ? [RPC_FALLBACK[chain]] : [];
 }
+function rpcUrl(chain) { return rpcUrls(chain)[0] || null; }
 // Back-compat display map (mainnet entries are null until their env var is set).
 const RPC = {};
 for (const c of Object.keys(RPC_ENV)) { try { RPC[c] = rpcUrl(c); } catch { RPC[c] = null; } }
@@ -51,7 +59,7 @@ const CONFIRMATIONS = {
   // Operational mainnet depths: fast enough for checkout while still requiring
   // several buried blocks. A transfer is detected at the chain tip first and is
   // only marked confirmed once it reaches the depth below.
-  'eip155:84532': 3, 'eip155:8453': 3, 'eip155:137': 8, 'eip155:5042002': 3, 'eip155:11155111': 3, 'eip155:1': 2,
+  'eip155:84532': 3, 'eip155:8453': 2, 'eip155:137': 2, 'eip155:5042002': 3, 'eip155:11155111': 3, 'eip155:1': 1,
   'solana': 1, 'sui': 1,
 };
 const confDepth = (c) => (CONFIRMATIONS[c] != null ? CONFIRMATIONS[c] : 3);
@@ -126,17 +134,26 @@ const assetForChain = (chain) => assetsForChain(chain).map(a => a.symbol);
 const assetOk = (chain, asset) => !!assetConfig(chain, asset);
 
 async function rpc(chain, method, params = []) {
-  const url = rpcUrl(chain);
-  if (!url) throw new Error(`no RPC for chain ${chain}`);
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-    signal: AbortSignal.timeout(8000),
-  });
-  const j = await r.json();
-  if (j.error) throw new Error(j.error.message);
-  return j.result;
+  const urls = rpcUrls(chain);
+  if (!urls.length) throw new Error(`no RPC for chain ${chain}`);
+  const request = async url => {
+    const r = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      signal: AbortSignal.timeout(7500),
+    });
+    if (!r.ok) throw new Error(`RPC HTTP ${r.status}`);
+    const j = await r.json();
+    if (j.error) throw new Error(j.error.message);
+    if (j.result == null) throw new Error('RPC returned no result');
+    return j.result;
+  };
+  try {
+    return await Promise.any(urls.map(request));
+  } catch (error) {
+    const reasons = error && error.errors ? error.errors.map(item => item.message).join('; ') : error.message;
+    throw new Error(`all ${chain} RPC endpoints failed: ${reasons}`);
+  }
 }
 
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
@@ -155,17 +172,49 @@ async function scanTransfersTo(payment) {
   const cfg = assetConfig(payment.chain, payment.asset);
   if (!cfg || payment.startBlock == null) throw new Error('payment is missing token or start block');
   const recipient = '0x' + String(payment.depositAddress).slice(2).toLowerCase().padStart(64, '0');
-  const fromBlock = '0x' + BigInt(payment.startBlock).toString(16);
-  // Read the tip and matching logs in parallel. One scan detects a transaction
-  // immediately and also tells us when it reaches the required finality depth.
-  const [headHex, logs] = await Promise.all([
-    rpc(payment.chain, 'eth_blockNumber', []),
-    rpc(payment.chain, 'eth_getLogs', [{ address: cfg.contract, fromBlock, toBlock: 'latest',
-      topics: [TRANSFER_TOPIC, null, recipient] }]),
-  ]);
+  const originalStart = BigInt(payment.startBlock);
+  const expiredLongAgo = payment.expiresAt && Date.now() > Number(payment.expiresAt) + FINALITY_GRACE_MS;
+  const finalizedRequest = () => payment.chain === 'eip155:137'
+    ? rpc(payment.chain, 'eth_getBlockByNumber', ['finalized', false]).catch(() => null)
+    : Promise.resolve(null);
+  let headHex, logs, finalizedBlock;
+  if (!expiredLongAgo) {
+    // Active checkout hot path: head, exact Transfer logs and finality are fetched
+    // concurrently, keeping detection to one network round trip after block inclusion.
+    [headHex, logs, finalizedBlock] = await Promise.all([
+      rpc(payment.chain, 'eth_blockNumber', []),
+      rpc(payment.chain, 'eth_getLogs', [{
+        address: cfg.contract,
+        fromBlock: '0x' + originalStart.toString(16),
+        toBlock: 'latest',
+        topics: [TRANSFER_TOPIC, null, recipient],
+      }]),
+      finalizedRequest(),
+    ]);
+  } else {
+    // Stale links can span hundreds of thousands of Polygon blocks. Read the head
+    // first, then prioritize the latest 5,000 blocks so a payment sent now is not
+    // blocked by an RPC provider's historical-range limit.
+    headHex = await rpc(payment.chain, 'eth_blockNumber', []);
+    const head = BigInt(headHex);
+    const recentFloor = head > 5000n ? head - 5000n : 0n;
+    const scanStart = originalStart < recentFloor ? recentFloor : originalStart;
+    [logs, finalizedBlock] = await Promise.all([
+      rpc(payment.chain, 'eth_getLogs', [{
+        address: cfg.contract,
+        fromBlock: '0x' + scanStart.toString(16),
+        toBlock: 'latest',
+        topics: [TRANSFER_TOPIC, null, recipient],
+      }]),
+      finalizedRequest(),
+    ]);
+  }
   if (!Array.isArray(logs) || logs.length > 100) throw new Error('unexpected transfer log count');
   const head = BigInt(headHex);
-  const required = confDepth(payment.chain);
+  const finalizedHead = finalizedBlock && finalizedBlock.number ? BigInt(finalizedBlock.number) : null;
+  const fallbackRequired = confDepth(payment.chain);
+  const finalityMode = payment.chain === 'eip155:137' && finalizedHead != null ? 'polygon_milestone' : 'block_confirmation';
+  const required = finalityMode === 'polygon_milestone' ? 1 : fallbackRequired;
   const blockNumbers = [...new Set(logs.map(log => log.blockNumber))];
   const blocks = new Map(await Promise.all(blockNumbers.map(async number => {
     const block = await rpc(payment.chain, 'eth_getBlockByNumber', [number, false]);
@@ -175,19 +224,27 @@ async function scanTransfersTo(payment) {
   const transfers = logs.map(log => {
     const blockNumber = BigInt(log.blockNumber);
     const confirmations = head >= blockNumber ? Number(head - blockNumber + 1n) : 0;
-    return { id: `${log.transactionHash}:${log.logIndex}`, txHash: log.transactionHash,
+    const finalized = payment.chain === 'eip155:137' && finalizedHead != null
+      ? blockNumber <= finalizedHead
+      : confirmations >= fallbackRequired;
+    return {
+      id: `${log.transactionHash}:${log.logIndex}`, txHash: log.transactionHash,
       logIndex: log.logIndex, blockNumber: blockNumber.toString(),
-      blockTimestamp: blocks.get(log.blockNumber), from: '0x' + String(log.topics[1]).slice(-40),
-      amount: BigInt(log.data).toString(), confirmations };
+      blockTimestamp: blocks.get(log.blockNumber),
+      from: '0x' + String(log.topics[1]).slice(-40),
+      amount: BigInt(log.data).toString(), confirmations, finalized,
+    };
   });
   return {
     required,
     transfers,
-    finalized: transfers.filter(transfer => transfer.confirmations >= required),
-    pending: transfers.filter(transfer => transfer.confirmations < required),
+    finalized: transfers.filter(transfer => transfer.finalized),
+    pending: transfers.filter(transfer => !transfer.finalized),
+    head: head.toString(),
+    finalizedHead: finalizedHead == null ? null : finalizedHead.toString(),
+    finalityMode,
   };
 }
-
 async function tokenTransfersTo(payment) {
   return (await scanTransfersTo(payment)).finalized;
 }
@@ -270,6 +327,7 @@ async function confirmedBalance(chain, address, asset) {
 async function checkAndConfirm(payment) {
   if (!payment || !RECHECKABLE_PAYMENT_STATUSES.has(payment.status)) return payment;
   const previousStatus = payment.status;
+  const watcherStartedAt = Date.now();
 
   // Cancel legacy subscription invoices without collecting funds.
   if (payment.onboarding) {
@@ -286,15 +344,17 @@ async function checkAndConfirm(payment) {
 
   try {
     const scan = await scanTransfersTo(payment);
+    payment.watcherHealth = { status: 'ok', checked_at: Date.now(), latency_ms: Date.now() - watcherStartedAt, head: scan.head, finalized_head: scan.finalizedHead };
     const transfers = scan.finalized;
     const result = classifyTransfers(payment, transfers);
     if (scan.pending.length) {
       result.status = 'checking_finality';
       const newest = [...scan.pending].sort((a, b) => b.confirmations - a.confirmations)[0];
       payment.confirmationProgress = {
-        seen: newest.confirmations,
+        seen: scan.finalityMode === 'polygon_milestone' ? 0 : newest.confirmations,
         required: scan.required,
         transaction_hash: newest.txHash,
+        finality: scan.finalityMode,
       };
       payment.detectedAt = payment.detectedAt || Date.now();
     } else {
@@ -303,9 +363,9 @@ async function checkAndConfirm(payment) {
     payment.transfers = transfers;
     payment.receivedAmount = result.received.toString();
     payment.payerAddress = result.sender;
-    payment.transactionHashes = [...new Set(transfers.map(t => t.txHash))];
+    payment.transactionHashes = [...new Set(scan.transfers.map(t => t.txHash))];
     if (result.status === 'confirmed') {
-      await confirmPayment(payment, CONFIRMATIONS[payment.chain] || 3);
+      await confirmPayment(payment, scan.required);
     } else {
       payment.status = result.status;
       if (result.refund != null) {
@@ -329,9 +389,15 @@ async function checkAndConfirm(payment) {
       }
     }
   } catch (e) {
-    // unsupported chain or RPC hiccup — leave pending; next poll/cron retries
+    payment.watcherHealth = {
+      status: 'degraded',
+      checked_at: Date.now(),
+      latency_ms: Date.now() - watcherStartedAt,
+      error: String(e && e.message || 'on-chain watcher failed').slice(0, 240),
+    };
+    await store.set(`payment:${payment.id}`, payment);
   }
   return payment;
 }
 
-module.exports = { CHECKOUT_TTL_MS, RPC, CONFIRMATIONS, ASSETS, DECIMALS, SYMBOL, ACTIVE_PAYMENT_STATUSES, RECHECKABLE_PAYMENT_STATUSES, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetConfig, assetsForChain, assetForChain, assetOk, rpc, rpcUrl, currentBlock, ethBalance, tokenBalance, nativeBalance, confirmedBalance, scanTransfersTo, tokenTransfersTo, classifyTransfers, checkAndConfirm };
+module.exports = { CHECKOUT_TTL_MS, RPC, CONFIRMATIONS, ASSETS, DECIMALS, SYMBOL, ACTIVE_PAYMENT_STATUSES, RECHECKABLE_PAYMENT_STATUSES, decimals, symbol, toHuman, isValidBaseAmount, chainSupported, chainDisabledReason, assetConfig, assetsForChain, assetForChain, assetOk, rpc, rpcUrl, rpcUrls, currentBlock, ethBalance, tokenBalance, nativeBalance, confirmedBalance, scanTransfersTo, tokenTransfersTo, classifyTransfers, checkAndConfirm };

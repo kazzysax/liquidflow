@@ -84,7 +84,7 @@
     try{
       var r=await fetch(plateOrigin+'/api/payment?action=create',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({items:items,chain:choice.chain,asset:choice.asset})});
       var data=await r.json();if(!r.ok)throw new Error(data.error||'Payment could not be created');
-      id=data.payment_id;history.replaceState({},'',location.pathname+'?id='+encodeURIComponent(id));postToFood('liquidflow:payment-created',data);load();poll=setInterval(function(){load(false)},2000);
+      id=data.payment_id;history.replaceState({},'',location.pathname+'?id='+encodeURIComponent(id));postToFood('liquidflow:payment-created',data);load();poll=setInterval(function(){load(false)},1000);
     }catch(e){document.getElementById('card').innerHTML='<div class="status bad"><span>'+esc(e.message||'Payment could not be created')+'</span></div><button class="check-btn" onclick="renderSelection()">Try again</button>'}
   }
 
@@ -105,6 +105,7 @@
     else if(p.status==='awaiting_topup'){statusHtml='Partial payment received.'}
     else if(p.status==='refund_pending'){statusCls='bad';statusDot='';statusHtml='Payment needs review.'}
     else if(p.status==='manual_review'){statusCls='bad';statusDot='';statusHtml='Payment needs merchant review.'}
+    if(p.watcher_health&&p.watcher_health.status==='degraded'&&['awaiting_payment','awaiting_topup','checking_finality','expired'].indexOf(p.status)>=0){statusCls='bad';statusDot='';statusHtml='On-chain watcher reconnecting. Confirmation will retry automatically.'}
     var showPay=p.status!=='cancelled';
     var html='<div class="merchant">Pay '+esc(p.merchant_name)+'</div>'+(p.label?'<div class="label">'+esc(p.label)+'</div>':'')+'<div class="amount">'+amt+'<span class="sym">'+esc(p.symbol||p.asset)+'</span></div><div class="chip">'+chainName(p.chain)+'</div>';
     if(showPay)html+='<div class="qr"><img alt="Scan to pay" src="'+qr+'"></div><div class="addr-lbl">Send exactly '+amt+' '+esc(p.symbol||p.asset)+'</div><div class="addr"><span id="addr">'+esc(p.deposit_address)+'</span><button class="copy" onclick="copyAddr(\''+p.deposit_address+'\',this)">Copy</button></div>';
@@ -121,10 +122,10 @@
   function showReceipt(bundle){receiptBundle=bundle;var el=document.getElementById('receipt');if(el)el.innerHTML='<div class="receipt-actions"><button class="receipt-btn" onclick="downloadReceipt()">Download receipt</button></div>'}
   async function loadReceipt(paymentId){var stored=null;try{stored=localStorage.getItem(receiptStorageKey(paymentId))}catch(e){}try{var r=await fetch('/api/receipt?action=get&id='+encodeURIComponent(paymentId));if(!r.ok)throw new Error();var bundle=await r.json();try{localStorage.setItem(receiptStorageKey(paymentId),JSON.stringify(bundle))}catch(e){}showReceipt(bundle)}catch(e){if(stored){try{showReceipt(JSON.parse(stored));return}catch(x){}}var el=document.getElementById('receipt');if(el)el.innerHTML='<button class="receipt-btn" onclick="loadReceipt(\''+paymentId+'\')">Retry receipt</button>'}}
   function downloadReceipt(){if(!receiptBundle)return;var blob=new Blob([JSON.stringify(receiptBundle,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='liquidflow-'+receiptBundle.receipt.payment_id+'-receipt.json';a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},1000)}
-  async function load(manual){if(!id)return;if(loading){if(manual)manualQueued=true;return}loading=true;try{var r=await fetch('/api/checkout/'+id+'?check='+(manual?'manual':'auto')+'&t='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(9000)});if(!r.ok)throw new Error((await r.json().catch(function(){return{}})).error||'Payment not found');lastPayment=await r.json();render(lastPayment)}catch(e){if(lastPayment){var status=document.querySelector('.status');if(status){status.className='status bad';status.innerHTML='<span>Network check delayed. Watching continues automatically.</span>'}}else document.getElementById('card').innerHTML='<div class="status bad"><span>Payment could not be loaded.</span></div><button class="check-btn" onclick="load(true)">Retry</button>'}finally{loading=false;if(manualQueued){manualQueued=false;setTimeout(function(){load(true)},0)}}}
+  async function load(manual){if(!id)return;if(loading){if(manual)manualQueued=true;return}loading=true;try{var r=await fetch('/api/checkout/'+id+'?check='+(manual?'manual':'auto')+'&t='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(12000)});if(!r.ok)throw new Error((await r.json().catch(function(){return{}})).error||'Payment not found');lastPayment=await r.json();render(lastPayment)}catch(e){if(lastPayment){var status=document.querySelector('.status');if(status){status.className='status bad';status.innerHTML='<span>Network check delayed. Watching continues automatically.</span>'}}else document.getElementById('card').innerHTML='<div class="status bad"><span>Payment could not be loaded.</span></div><button class="check-btn" onclick="load(true)">Retry</button>'}finally{loading=false;if(manualQueued){manualQueued=false;setTimeout(function(){load(true)},0)}}}
   async function manualCheck(){var button=document.getElementById('manualCheck');if(button){button.disabled=true;button.textContent='Checking network…'}await load(true)}
 
-  if(id){load();poll=setInterval(function(){load(false)},2000)}else if(merchant&&encodedOrder){renderSelection()}else document.getElementById('card').innerHTML='<div class="status bad"><span>Missing checkout details.</span></div>';
+  if(id){load();poll=setInterval(function(){load(false)},1000)}else if(merchant&&encodedOrder){renderSelection()}else document.getElementById('card').innerHTML='<div class="status bad"><span>Missing checkout details.</span></div>';
 </script>
 </body>
 </html>
