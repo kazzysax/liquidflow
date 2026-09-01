@@ -3,6 +3,7 @@
 const store   = require('./store');
 const webhook = require('./webhook');
 const { trackVerseEvent } = require('./verse-analytics');
+const { waitUntil } = require('@vercel/functions');
 
 async function confirmPayment(payment, confirmations) {
   // Distributed concurrency guard: on-demand polling and the cron watcher can run
@@ -31,29 +32,40 @@ async function confirmPayment(payment, confirmations) {
   await store.set(`payment:${payment.id}`, payment);
   await store.srem('payments:pending', payment.id);
 
-  await trackVerseEvent('Payment Confirmed', {
-    asset: payment.asset,
-    chain: payment.chain,
-    delivery_mode: payment.mode || 'legacy',
-  });
+  const deliverPostConfirmation = async () => {
+    await trackVerseEvent('Payment Confirmed', {
+      asset: payment.asset,
+      chain: payment.chain,
+      delivery_mode: payment.mode || 'legacy',
+    });
 
-  let webhookSent = false;
-  if (payment.apiKey) {
-    const merchant = await store.get(`merchant:${payment.apiKey}`);
-    if (merchant && merchant.webhookUrl) {
-      await webhook.send(merchant.webhookUrl, merchant.webhookSecret, {
-        type:          'payment.confirmed',
-        payment_id:    payment.id,
-        amount:        payment.amount,
-        asset:         payment.asset,
-        chain:         payment.chain,
-        confirmations,
-        final:         true,
-      });
-      webhookSent = true;
+    let webhookSent = false;
+    if (payment.apiKey) {
+      const merchant = await store.get(`merchant:${payment.apiKey}`);
+      if (merchant && merchant.webhookUrl) {
+        await webhook.send(merchant.webhookUrl, merchant.webhookSecret, {
+          type: 'payment.confirmed',
+          payment_id: payment.id,
+          amount: payment.amount,
+          asset: payment.asset,
+          chain: payment.chain,
+          confirmations,
+          final: true,
+        });
+        webhookSent = true;
+      }
     }
+    return webhookSent;
+  };
+
+  // The state is already durably confirmed. On Vercel, keep webhook and analytics
+  // delivery alive after returning so a slow merchant endpoint cannot delay the
+  // customer's success screen. Local/tests await it for deterministic verification.
+  if (process.env.VERCEL === '1') {
+    waitUntil(deliverPostConfirmation());
+    return true;
   }
-  return webhookSent;
+  return deliverPostConfirmation();
 }
 
 module.exports = { confirmPayment };
