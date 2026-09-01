@@ -68,6 +68,12 @@
   .badge{font-size:10.5px;font-weight:500;padding:3px 9px;border-radius:100px;display:inline-block}
   .b-ok{background:var(--ok-bg);color:var(--ok-tx)} .b-wait{background:var(--warn-bg);color:var(--warn-tx)} .b-exp{background:#F0F1F4;color:#75839C}
   .empty{text-align:center;color:var(--ink-2);font-size:13px;padding:26px 0}
+  .payment-history{margin-top:10px;border-top:1px solid var(--line-2);padding-top:8px}
+  .payment-history summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;padding:10px 8px;color:var(--flow);font-size:12px;font-weight:600}
+  .payment-history summary::-webkit-details-marker{display:none}
+  .payment-history summary:after{content:'⌄';font-size:15px}
+  .payment-history[open] summary:after{content:'⌃'}
+  .payment-history table{margin-top:2px}
 
   .fg{margin-bottom:12px}
   .fg label{font-size:12px;font-weight:500;display:block;margin-bottom:6px}
@@ -145,6 +151,10 @@
             <tbody id="rows"></tbody>
           </table>
           <div class="empty" id="emptyMsg" style="display:none">No payments yet — create a payment on the right.</div>
+          <details class="payment-history" id="olderPayments" hidden>
+            <summary><span>Show older payments</span><span id="olderCount"></span></summary>
+            <table><tbody id="olderRows"></tbody></table>
+          </details>
         </div>
       </div>
 
@@ -275,26 +285,35 @@
     return '<span class="badge b-wait">awaiting</span>';
   }
 
-  function render(payments){
-    var rows=document.getElementById('rows'); var empty=document.getElementById('emptyMsg');
-    if(!payments.length){ rows.innerHTML=''; empty.style.display='block'; return; }
-    empty.style.display='none';
-    rows.innerHTML=payments.map(function(p){
-      var now=Date.now();
-      var canCancel = p.status==='awaiting_payment' && now<p.expires_at;
-      var act = canCancel
-        ? '<button class="btn btn-ghost btn-sm" onclick="cancelPayment(\''+p.payment_id+'\')">Cancel</button>'
-        : (p.status==='confirmed' ? '<span class="muted">✓ '+ago(p.confirmed_at)+'</span>' : '');
-      return '<tr>'
-        +'<td class="muted">'+ago(p.created_at)+(p.label?'<br><span class="mono" style="color:var(--ink)">'+p.label+'</span>':'')+'</td>'
-        +'<td><b>'+fmtAmt(p.amount, p.decimals)+'</b> '+(p.symbol||p.asset||'')+'</td>'
-        +'<td><span class="addr" title="click to copy" onclick="copy(\''+p.deposit_address+'\')">'+short(p.deposit_address)+'</span></td>'
-        +'<td>'+statusBadge(p)+'</td>'
-        +'<td style="text-align:right">'+act+'</td>'
-        +'</tr>';
-    }).join('');
+  function paymentRow(p){
+    var now=Date.now();
+    var canCancel=p.status==='awaiting_payment'&&now<p.expires_at;
+    var act=canCancel
+      ? '<button class="btn btn-ghost btn-sm" onclick="cancelPayment(\''+p.payment_id+'\')">Cancel</button>'
+      : (p.status==='confirmed'?'<span class="muted">✓ '+ago(p.confirmed_at)+'</span>':'');
+    return '<tr>'
+      +'<td class="muted">'+ago(p.created_at)+(p.label?'<br><span class="mono" style="color:var(--ink)">'+p.label+'</span>':'')+'</td>'
+      +'<td><b>'+fmtAmt(p.amount,p.decimals)+'</b> '+(p.symbol||p.asset||'')+'</td>'
+      +'<td><span class="addr" title="click to copy" onclick="copy(\''+p.deposit_address+'\')">'+short(p.deposit_address)+'</span></td>'
+      +'<td>'+statusBadge(p)+'</td>'
+      +'<td style="text-align:right">'+act+'</td>'
+      +'</tr>';
   }
 
+  function render(payments){
+    var rows=document.getElementById('rows'),empty=document.getElementById('emptyMsg');
+    var older=document.getElementById('olderPayments'),olderRows=document.getElementById('olderRows');
+    if(!payments.length){
+      rows.innerHTML='';olderRows.innerHTML='';older.hidden=true;empty.style.display='block';return;
+    }
+    empty.style.display='none';
+    rows.innerHTML=payments.slice(0,5).map(paymentRow).join('');
+    var history=payments.slice(5),wasOpen=older.open;
+    olderRows.innerHTML=history.map(paymentRow).join('');
+    older.hidden=!history.length;
+    document.getElementById('olderCount').textContent=history.length?history.length+' older':'';
+    older.open=history.length&&wasOpen;
+  }
   function copy(t){ if(navigator.clipboard) navigator.clipboard.writeText(t).catch(function(){}); }
 
   var DEX_ASSETS={

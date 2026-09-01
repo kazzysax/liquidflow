@@ -67,12 +67,18 @@
   .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(30,91,255,0.38)}
   .btn-primary:active{transform:translateY(0)}
   .btn-lg{padding:15px 30px;font-size:16px}
+  .mobile-label{display:none}
   @media(max-width:820px){.navlinks{display:none}}
   @media(max-width:560px){
-    .nav-cta .btn-ghost{display:none}
     .nav{height:64px}
-    .nav-cta .btn-primary{padding:10px 18px;font-size:14px}
-    .wrap{padding:0 20px}
+    .nav .brand{gap:8px}
+    .nav .brand svg{width:30px;height:30px}
+    .nav .brand .wm{font-size:18px}
+    .nav-cta{gap:6px}
+    .nav-cta .btn{padding:9px 12px;font-size:12.5px}
+    .desktop-label{display:none}
+    .mobile-label{display:inline}
+    .wrap{padding:0 14px}
   }
 
   /* ---------- hero ---------- */
@@ -271,7 +277,7 @@
     </nav>
     <div class="nav-cta">
       <a href="dashboard.html" class="btn btn-ghost">Sign in</a>
-      <a href="gateway.html" class="btn btn-primary">Access Gateway</a>
+      <a href="gateway.html" class="btn btn-primary"><span class="desktop-label">Access Gateway</span><span class="mobile-label">Gateway</span></a>
     </div>
   </div>
 </header>
